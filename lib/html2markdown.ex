@@ -81,7 +81,7 @@ defmodule Html2Markdown do
     end)
   end
 
-  def contains_nav_class?(string) do
+  defp contains_nav_class?(string) do
     Enum.any?(@navigation_classes, &String.contains?(string, &1))
   end
 
@@ -152,7 +152,7 @@ defmodule Html2Markdown do
   defp process_node({_, _, children}), do: process_children(children)
   defp process_node(text) when is_binary(text), do: String.trim(text)
 
-  def process_href(attrs, children) do
+  defp process_href(attrs, children) do
     case Enum.find(attrs, fn {attr, _} -> attr == "href" end) do
       {"href", url} -> "[#{process_children(children)}](#{url})"
       _ -> process_children(children)
