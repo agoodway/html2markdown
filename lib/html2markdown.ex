@@ -35,27 +35,40 @@ defmodule Html2Markdown do
   Converts the content from an HTML document to Markdown (removing non-content sections and tags)
 
   TODO:
+  - Deal with space between end of sentence and period (and similar cases)
   - Allow passing/overriding of tags and classes
   - Allow skipping of tag & element removal
   - Handle lists nested within lists
-  - Deal with space between end of sentence and period (and similar cases)
   """
   def convert(document) when is_binary(document) do
     document
     |> preprocess_content()
-    |> markdown()
+    |> convert_to_markdown()
   end
 
   def convert(_document), do: {:error, "Could not convert HTML to Markdown"}
 
-  defp preprocess_content(document) do
-    document
+  defp preprocess_content(content) do
+    content
+    |> prep_document()
     |> Floki.parse_document!()
     |> Floki.find("body")
     |> Floki.filter_out(:comment)
     |> remove_non_content_tags()
     |> remove_nav_elements()
   end
+
+  defp prep_document(content) do
+    if is_html_document?(content), do: content, else: wrap_fragment(content)
+  end
+
+  defp is_html_document?(content) do
+    content
+    |> String.downcase()
+    |> String.contains?(["<html", "<body", "<head"])
+  end
+
+  defp wrap_fragment(fragment), do: "<html><body>#{fragment}</body></html>"
 
   defp remove_non_content_tags(document) do
     Enum.reduce(@non_content_tags, document, &Floki.filter_out(&2, &1))
@@ -85,7 +98,7 @@ defmodule Html2Markdown do
     Enum.any?(@navigation_classes, &String.contains?(string, &1))
   end
 
-  defp markdown(document) do
+  defp convert_to_markdown(document) do
     Enum.map_join(document, "\n\n", &process_node/1)
   end
 

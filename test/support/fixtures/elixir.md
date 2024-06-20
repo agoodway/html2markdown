@@ -38,7 +38,7 @@ The choice of chunking approach depends on the nature of the text and the desire
 | Ecosystem and Libraries | Growing ecosystem with a wide range of libraries and supportive community. |
 | Community | Strong and supportive community with many tutorials and open-source projects. |
  
-These benefits make Elixir and Erlang a compelling choice for building scalable, fault-tolerant, and maintainable systems, especially in domains like web development, real-time applications, and <u>distributed systems</u> .
+These benefits make Elixir and Erlang a compelling choice for building scalable, fault-tolerant, and maintainable systems, especially in domains like web development, real-time applications, and <u>distributed systems</u>.
  
 > "Elixir is a dynamic, functional language designed for building scalable and maintainable applications."
  
@@ -52,7 +52,7 @@ end
  
 For inline code, you can use the `code` tags.
  
-Here is an example of **strong text** and *emphasized text* .
+Here is an example of **strong text** and *emphasized text*.
  
 Subscript: H <sub>2</sub> O
  
