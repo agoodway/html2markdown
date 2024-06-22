@@ -4,11 +4,20 @@ defmodule Html2MarkdownTest do
 
   @fixture_path "test/support/fixtures/"
 
-  test "convert a HTML document to Markdown" do
-    {:ok, html} = File.read(@fixture_path <> "elixir.html")
-    {:ok, markdown} = File.read(@fixture_path <> "elixir.md")
+  describe "convert a HTML document to Markdown" do
+    test "convert elixir-lang HTML document to Markdown" do
+      {:ok, html} = File.read(@fixture_path <> "elixir.html")
+      {:ok, markdown} = File.read(@fixture_path <> "elixir.md")
 
-    assert Html2Markdown.convert(html) == markdown
+      assert Html2Markdown.convert(html) == markdown
+    end
+
+    test "convert wikipedia HTML document to Markdown" do
+      {:ok, html} = File.read(@fixture_path <> "wikipedia.html")
+      {:ok, markdown} = File.read(@fixture_path <> "wikipedia.md")
+
+      assert Html2Markdown.convert(html) == markdown
+    end
   end
 
   test "convert a HTML fragment to Markdown" do

@@ -167,8 +167,14 @@ defmodule Html2Markdown do
 
   defp process_href(attrs, children) do
     case Enum.find(attrs, fn {attr, _} -> attr == "href" end) do
-      {"href", url} -> "[#{process_children(children)}](#{url})"
-      _ -> process_children(children)
+      {"href", url} ->
+        case process_children(children) do
+          "" -> "[#{url}](#{url})"
+          children -> "[#{children}](#{url})"
+        end
+
+      _ ->
+        process_children(children)
     end
   end
 
