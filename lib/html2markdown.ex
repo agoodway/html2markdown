@@ -303,6 +303,8 @@ defmodule Html2Markdown do
     end
   end
 
+  defp header_separator({"thead", _, [{"tr", _, cells}]}), do: header_separator({"tr", [], cells})
+
   defp header_separator({"tr", _, cells}) do
     {_, attrs, _} = List.first(cells)
     colspan = get_colspan(attrs)

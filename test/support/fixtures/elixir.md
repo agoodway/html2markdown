@@ -26,21 +26,36 @@
  
 The choice of chunking approach depends on the nature of the text and the desired granularity of retrieval and generation. Elixir's powerful string manipulation and pattern matching capabilities make it easy to implement various chunking strategies efficiently.
  
+### Common Elixir Data Types
+ 
+Elixir provides a rich set of built-in data types. Here's a table showcasing some of the most common ones:
+ 
+| Integer | Whole numbers | `42` |
+| --- | --- | --- |
+| Float | Decimal numbers | `3.14` |
+| Atom | Constants where their name is their value | `:ok` |
+| String | UTF-8 encoded binary | `\"Hello, World!\"` |
+| List | Linked list of values | `[1, 2, 3]` |
+| Tuple | Fixed-size collection of values | `{:ok, \"result\"}` |
+| Map | Key-value pairs | `%{name: \"Alice\", age: 30}` |
+ 
+Understanding these data types is crucial for effective Elixir programming.
+ 
 ### Benefits of Elixir/Erlang
  
 #### Elixir and Erlang offer several advantages over other language stacks when it comes to building scalable and fault-tolerant systems. Let's take a look at some of the key benefits:
  
 | Concurrency and Scalability | Built-in support for lightweight processes and efficient message passing. |
 | --- | --- |
-| Fault-Tolerance | "Let it crash" philosophy and automatic recovery from failures. |
+| Fault-Tolerance | \"Let it crash\" philosophy and automatic recovery from failures. |
 | Hot Code Swapping | Update code without stopping the system, providing zero downtime. |
 | Distribution and Clustering | Built-in support for distributed systems and easy horizontal scaling. |
 | Ecosystem and Libraries | Growing ecosystem with a wide range of libraries and supportive community. |
 | Community | Strong and supportive community with many tutorials and open-source projects. |
  
-These benefits make Elixir and Erlang a compelling choice for building scalable, fault-tolerant, and maintainable systems, especially in domains like web development, real-time applications, and <u>distributed systems</u>.
+These benefits make Elixir and Erlang a compelling choice for building scalable, fault-tolerant, and maintainable systems, especially in domains like web development, real-time applications, and <u>distributed systems</u> 
  
-> "Elixir is a dynamic, functional language designed for building scalable and maintainable applications."
+> \"Elixir is a dynamic, functional language designed for building scalable and maintainable applications.\"
  
 ### Sample Elixir Code
  
