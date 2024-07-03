@@ -79,7 +79,7 @@ defmodule Html2Markdown do
       {tag, attrs} when is_list(attrs) ->
         case List.keyfind(attrs, "class", 0) do
           {"class", class} ->
-            if contains_nav_class?(class) do
+            if contains_nav_class?(class) && tag != "body" do
               :delete
             else
               {tag, attrs}
