@@ -9,7 +9,7 @@ Add `html2markdown` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:html2markdown, "~> 0.1.4"}
+    {:html2markdown, "~> 0.1.5"}
   ]
 end
 ```

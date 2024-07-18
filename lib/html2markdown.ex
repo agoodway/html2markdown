@@ -253,7 +253,7 @@ defmodule Html2Markdown do
     end)
   end
 
-  defp process_table_row({"tr", _attrs, cells}) do
+  defp process_table_row({"tr", _attrs, cells}) when is_list(cells) and length(cells) > 0 do
     {_, attrs, _} = List.first(cells)
     colspan = get_colspan(attrs)
 
