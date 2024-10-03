@@ -161,6 +161,13 @@ defmodule Html2Markdown do
   defp process_node({"article", _, children}),
     do: newline() <> "#{process_children(children)}" <> newline()
 
+  defp process_node({"picture", _, children}) do
+    with {"img", attrs, _} <- Enum.find(children, fn {tag, _, _} -> tag == "img" end),
+         %{"alt" => alt, "src" => src} <- Enum.into(attrs, %{}) do
+      "![#{alt}](#{src})"
+    end
+  end
+
   defp process_node({"div", _, children}), do: "#{process_children(children)}" <> newline()
   defp process_node({_, _, children}), do: process_children(children)
   defp process_node(text) when is_binary(text), do: String.trim(text)
