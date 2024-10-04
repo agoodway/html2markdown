@@ -30,4 +30,24 @@ defmodule Html2MarkdownTest do
 
     assert Html2Markdown.convert(fragment) == markdown
   end
+
+  test "handle <picture>" do
+    fragment = """
+    <p>
+      <picture>
+        <source type="image/avif" srcset="/img/ocmxZOf3tv-792.avif 792w">
+        <source type="image/webp" srcset="/img/ocmxZOf3tv-792.webp 792w">
+        <p>a stray paragraph</p>
+        <img alt="a shadow" loading="lazy" decoding="async"
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Bombina_bombina_1_%28Marek_Szczepanek%29.jpg/440px-Bombina_bombina_1_%28Marek_Szczepanek%29.jpg"
+            width="792" height="528">
+      </picture>
+    </p>
+    """
+
+    markdown =
+      "![a shadow](https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Bombina_bombina_1_%28Marek_Szczepanek%29.jpg/440px-Bombina_bombina_1_%28Marek_Szczepanek%29.jpg)"
+
+    assert Html2Markdown.convert(fragment) == markdown
+  end
 end
