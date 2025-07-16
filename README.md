@@ -4,7 +4,7 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/html2markdown)
 [![License](https://img.shields.io/hexpm/l/html2markdown.svg)](https://github.com/cpursley/html2markdown/blob/main/LICENSE)
 
-Convert HTML to clean, readable Markdown. Designed for content extraction, this library intelligently handles common HTML patterns while filtering out non-content elements like navigation and and scripts.
+Convert HTML to clean, readable Markdown. Designed for content extraction, this library handles common HTML patterns while filtering out non-content elements like navigation and and scripts.
 
 ## Installation
 
@@ -13,7 +13,7 @@ Add `html2markdown` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:html2markdown, "~> 0.2.0"}
+    {:html2markdown, "~> 0.2.1"}
   ]
 end
 ```
@@ -64,7 +64,7 @@ Html2Markdown.convert(html, %{
 Extract readable content from web pages:
 
 ```elixir
-{:ok, %{body: html}} = HTTPoison.get(url)
+{:ok, %{body: html}} = Req.get!(url)
 markdown = Html2Markdown.convert(html)
 ```
 

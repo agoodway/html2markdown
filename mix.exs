@@ -4,12 +4,13 @@ defmodule Html2Markdown.MixProject do
   def project do
     [
       app: :html2markdown,
-      version: "0.2.0",
+      version: "0.2.1",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       description: description(),
       package: package(),
       deps: deps(),
+      docs: docs(),
       aliases: aliases(),
       test_coverage: [tool: ExCoveralls],
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -48,6 +49,13 @@ defmodule Html2Markdown.MixProject do
       maintainers: ["Chase Pursley"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/cpursley/html2markdown"}
+    ]
+  end
+
+  defp docs() do
+    [
+      main: "readme",
+      extras: ["README.md"]
     ]
   end
 
