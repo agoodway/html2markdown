@@ -3,14 +3,19 @@ defmodule Html2Markdown.Parser do
   Handles HTML preprocessing and parsing operations.
   """
 
+  alias Html2Markdown.Options
+
+  @type html_tree :: list(Floki.html_node())
+
   @doc """
   Preprocesses HTML content by parsing it and filtering out non-content elements.
   """
+  @spec preprocess_content(String.t(), Options.t()) :: html_tree()
   def preprocess_content(content, opts) do
     # Convert lists to MapSets for O(1) lookup performance
     non_content_tags_set = MapSet.new(opts.non_content_tags)
     navigation_classes_set = MapSet.new(opts.navigation_classes)
-    
+
     content
     |> prep_document()
     |> Floki.parse_document!()
@@ -33,13 +38,14 @@ defmodule Html2Markdown.Parser do
   defp extract_and_filter_body(document, non_content_tags_set, navigation_classes_set) do
     # Find body tag and extract its children
     body_nodes = Floki.find(document, "body")
-    
-    nodes_to_filter = case body_nodes do
-      [{"body", _, children}] -> children
-      [] -> document
-      other -> other
-    end
-    
+
+    nodes_to_filter =
+      case body_nodes do
+        [{"body", _, children}] -> children
+        [] -> document
+        other -> other
+      end
+
     # Filter all nodes in a single pass
     filter_nodes(nodes_to_filter, non_content_tags_set, navigation_classes_set)
   end
@@ -57,24 +63,27 @@ defmodule Html2Markdown.Parser do
   end
 
   defp filter_node({:comment, _}, _, _), do: nil
-  
-  defp filter_node({tag, attrs, children}, non_content_tags_set, navigation_classes_set) when is_binary(tag) do
+
+  defp filter_node({tag, attrs, children}, non_content_tags_set, navigation_classes_set)
+       when is_binary(tag) do
     cond do
       # Check if it's a non-content tag
       MapSet.member?(non_content_tags_set, tag) ->
         nil
-      
+
       # Check for navigation classes (except body)
       tag != "body" && has_nav_class?(attrs, navigation_classes_set) ->
         nil
-      
+
       # Otherwise, filter children recursively
       true ->
-        filtered_children = filter_children(children, non_content_tags_set, navigation_classes_set)
+        filtered_children =
+          filter_children(children, non_content_tags_set, navigation_classes_set)
+
         {tag, attrs, filtered_children}
     end
   end
-  
+
   defp filter_node(node, _, _), do: node
 
   # Optimized: Check if any navigation class is contained in the class string
@@ -85,7 +94,7 @@ defmodule Html2Markdown.Parser do
         Enum.any?(navigation_classes_set, fn nav_class ->
           String.contains?(class_string, nav_class)
         end)
-      
+
       _ ->
         false
     end

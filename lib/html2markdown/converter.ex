@@ -3,8 +3,9 @@ defmodule Html2Markdown.Converter do
   Handles the conversion of HTML nodes to Markdown format.
   """
 
-  alias Html2Markdown.TableConverter
+  alias Html2Markdown.{TableConverter, Options}
 
+  @spec convert_to_markdown(list(Floki.html_node()), Options.t()) :: String.t()
   def convert_to_markdown(document, opts) do
     document
     |> build_markdown_iolist(opts)
@@ -16,8 +17,12 @@ defmodule Html2Markdown.Converter do
     nodes
     |> Enum.reduce([], fn node, acc ->
       case process_node_to_iolist(node, opts) do
-        [] -> acc
-        "" -> acc
+        [] ->
+          acc
+
+        "" ->
+          acc
+
         iodata ->
           if acc == [] do
             [iodata]
@@ -150,6 +155,7 @@ defmodule Html2Markdown.Converter do
     case List.keyfind(attrs, "title", 0) do
       {"title", title} ->
         ["", process_children_to_iolist(children, opts), " (", title, ")"]
+
       _ ->
         process_children_to_iolist(children, opts)
     end
@@ -161,9 +167,11 @@ defmodule Html2Markdown.Converter do
   defp process_node_to_iolist({"q", attrs, children}, opts) do
     # Handle cite attribute if present
     quote_content = ["\"", process_children_to_iolist(children, opts), "\""]
+
     case List.keyfind(attrs, "cite", 0) do
       {"cite", url} ->
         [quote_content, " (", url, ")"]
+
       _ ->
         quote_content
     end
@@ -174,6 +182,7 @@ defmodule Html2Markdown.Converter do
       {"datetime", datetime} ->
         # Include datetime as title attribute in markdown
         ["", process_children_to_iolist(children, opts), " <time datetime=\"", datetime, "\">"]
+
       _ ->
         process_children_to_iolist(children, opts)
     end
@@ -184,6 +193,7 @@ defmodule Html2Markdown.Converter do
       {"src", src} ->
         # Convert video to a link
         ["[Video](", src, ")"]
+
       _ ->
         # Check for source children
         "[Video]"
@@ -200,17 +210,18 @@ defmodule Html2Markdown.Converter do
     do: ["\n", process_children_to_iolist(children, opts), "\n"]
 
   defp process_node_to_iolist({"picture", _, children}, opts) do
-    case Enum.find(children, fn 
-      {tag, _, _} when is_binary(tag) -> tag == "img"
-      _ -> false
-    end) do
+    case Enum.find(children, fn
+           {tag, _, _} when is_binary(tag) -> tag == "img"
+           _ -> false
+         end) do
       {"img", attrs, _} ->
         case {List.keyfind(attrs, "src", 0), List.keyfind(attrs, "alt", 0)} do
           {{"src", src}, {"alt", alt}} -> ["![", alt, "](", src, ")"]
           {{"src", src}, _} -> ["![](", src, ")"]
           _ -> []
         end
-      _ -> 
+
+      _ ->
         # No img found, process children normally
         process_children_to_iolist(children, opts)
     end
@@ -236,11 +247,13 @@ defmodule Html2Markdown.Converter do
     case List.keyfind(attrs, "href", 0) do
       {"href", url} ->
         children_text = IO.iodata_to_binary(process_children_to_iolist(children, opts))
+
         if children_text == "" do
           ["[", url, "](", url, ")"]
         else
           ["[", children_text, "](", url, ")"]
         end
+
       _ ->
         process_children_to_iolist(children, opts)
     end
@@ -269,106 +282,116 @@ defmodule Html2Markdown.Converter do
 
   defp process_definition_list_to_iolist(children, opts) when is_list(children) do
     # Group elements into definition groups (dt followed by its dd elements)
-    {groups, last_group} = children
-    |> Enum.reduce({[], nil}, fn
-      {"dt", _, _} = dt, {groups, current_group} ->
-        # Start a new group with this dt
-        new_group = %{dt: dt, dds: []}
-        if current_group do
-          {groups ++ [current_group], new_group}
-        else
-          {groups, new_group}
-        end
+    {groups, last_group} =
+      children
+      |> Enum.reduce({[], nil}, fn
+        {"dt", _, _} = dt, {groups, current_group} ->
+          # Start a new group with this dt
+          new_group = %{dt: dt, dds: []}
 
-      {"dd", _, _} = dd, {groups, current_group} when not is_nil(current_group) ->
-        # Add dd to current group
-        updated_group = Map.update!(current_group, :dds, &(&1 ++ [dd]))
-        {groups, updated_group}
+          if current_group do
+            {groups ++ [current_group], new_group}
+          else
+            {groups, new_group}
+          end
 
-      {"dd", _, _} = dd, {groups, nil} ->
-        # dd without preceding dt - create a group with no dt
-        {groups ++ [%{dt: nil, dds: [dd]}], nil}
+        {"dd", _, _} = dd, {groups, current_group} when not is_nil(current_group) ->
+          # Add dd to current group
+          updated_group = Map.update!(current_group, :dds, &(&1 ++ [dd]))
+          {groups, updated_group}
 
-      other, {groups, current_group} ->
-        # Other elements get their own group
-        groups_with_current = if current_group, do: groups ++ [current_group], else: groups
-        {groups_with_current ++ [%{dt: nil, dds: [], other: other}], nil}
-    end)
+        {"dd", _, _} = dd, {groups, nil} ->
+          # dd without preceding dt - create a group with no dt
+          {groups ++ [%{dt: nil, dds: [dd]}], nil}
+
+        other, {groups, current_group} ->
+          # Other elements get their own group
+          groups_with_current = if current_group, do: groups ++ [current_group], else: groups
+          {groups_with_current ++ [%{dt: nil, dds: [], other: other}], nil}
+      end)
 
     # Add the last group if any
-    all_groups = if last_group do
-      groups ++ [last_group]
-    else
-      groups
-    end
+    all_groups =
+      if last_group do
+        groups ++ [last_group]
+      else
+        groups
+      end
 
     # Process each group
-    result = all_groups
-    |> Enum.reduce([], fn group, acc ->
-      group_iolist = case group do
-        %{dt: nil, dds: [], other: other} ->
-          # Just process the other element
-          process_node_to_iolist(other, opts)
+    result =
+      all_groups
+      |> Enum.reduce([], fn group, acc ->
+        group_iolist =
+          case group do
+            %{dt: nil, dds: [], other: other} ->
+              # Just process the other element
+              process_node_to_iolist(other, opts)
 
-        %{dt: nil, dds: dds} ->
-          # Just dd elements without dt
-          Enum.map(dds, &process_node_to_iolist(&1, opts))
-          |> Enum.intersperse("\n")
+            %{dt: nil, dds: dds} ->
+              # Just dd elements without dt
+              Enum.map(dds, &process_node_to_iolist(&1, opts))
+              |> Enum.intersperse("\n")
 
-        %{dt: dt, dds: []} ->
-          # Just dt without dd
-          process_node_to_iolist(dt, opts)
+            %{dt: dt, dds: []} ->
+              # Just dt without dd
+              process_node_to_iolist(dt, opts)
 
-        %{dt: dt, dds: dds} ->
-          # dt with dd elements
-          dt_iolist = process_node_to_iolist(dt, opts)
-          dd_iolists = Enum.map(dds, &process_node_to_iolist(&1, opts))
-          [dt_iolist, "\n", Enum.intersperse(dd_iolists, "\n")]
-      end
+            %{dt: dt, dds: dds} ->
+              # dt with dd elements
+              dt_iolist = process_node_to_iolist(dt, opts)
+              dd_iolists = Enum.map(dds, &process_node_to_iolist(&1, opts))
+              [dt_iolist, "\n", Enum.intersperse(dd_iolists, "\n")]
+          end
 
-      if acc == [] do
-        [group_iolist]
-      else
-        [acc, "\n\n", group_iolist]
-      end
-    end)
+        if acc == [] do
+          [group_iolist]
+        else
+          [acc, "\n\n", group_iolist]
+        end
+      end)
 
     ["\n", result, "\n"]
   end
 
   defp process_ul_list_to_iolist(children, opts) when is_list(children) do
-    items = children
-    |> Enum.map(&process_list_item_to_iolist(&1, opts))
-    |> Enum.intersperse("\n")
+    items =
+      children
+      |> Enum.map(&process_list_item_to_iolist(&1, opts))
+      |> Enum.intersperse("\n")
 
     ["\n", items, "\n"]
   end
 
   defp process_ol_list_to_iolist(children, opts) when is_list(children) do
-    items = children
-    |> Enum.with_index(1)
-    |> Enum.map(fn {child, index} ->
-      process_ordered_list_item_to_iolist(child, index, opts)
-    end)
-    |> Enum.intersperse("\n")
+    items =
+      children
+      |> Enum.with_index(1)
+      |> Enum.map(fn {child, index} ->
+        process_ordered_list_item_to_iolist(child, index, opts)
+      end)
+      |> Enum.intersperse("\n")
 
     ["\n", items, "\n"]
   end
 
   defp process_list_item_to_iolist({"li", _, children}, opts),
     do: ["- ", process_children_to_iolist(children, opts)]
+
   defp process_list_item_to_iolist(other, opts),
     do: process_node_to_iolist(other, opts)
 
   defp process_ordered_list_item_to_iolist({"li", _, children}, index, opts),
     do: [Integer.to_string(index), ". ", process_children_to_iolist(children, opts)]
+
   defp process_ordered_list_item_to_iolist(other, _index, opts),
     do: process_node_to_iolist(other, opts)
 
   defp process_children_to_iolist(children, opts) do
-    iolist = children
-    |> Enum.map(&process_node_to_iolist(&1, opts))
-    |> Enum.intersperse(" ")
+    iolist =
+      children
+      |> Enum.map(&process_node_to_iolist(&1, opts))
+      |> Enum.intersperse(" ")
 
     # Only trim if we're normalizing whitespace
     if opts.normalize_whitespace do
@@ -391,30 +414,35 @@ defmodule Html2Markdown.Converter do
 
   # Process details/summary elements
   defp process_details_to_iolist(children, opts) do
-    {summary, content} = Enum.split_with(children, fn 
-      {"summary", _, _} -> true
-      _ -> false
-    end)
-    
-    summary_iolist = case summary do
-      [{"summary", _, summary_children} | _] ->
-        ["**", process_children_to_iolist(summary_children, opts), "**"]
-      _ ->
-        ["**Details**"]
-    end
-    
+    {summary, content} =
+      Enum.split_with(children, fn
+        {"summary", _, _} -> true
+        _ -> false
+      end)
+
+    summary_iolist =
+      case summary do
+        [{"summary", _, summary_children} | _] ->
+          ["**", process_children_to_iolist(summary_children, opts), "**"]
+
+        _ ->
+          ["**Details**"]
+      end
+
     content_iolist = process_children_to_iolist(content, opts)
-    
+
     ["\n", summary_iolist, "\n", content_iolist, "\n"]
   end
 
   # Compatibility wrapper functions
+  @spec process_node(Floki.html_node(), Options.t()) :: String.t()
   def process_node(node, opts) do
     node
     |> process_node_to_iolist(opts)
     |> IO.iodata_to_binary()
   end
 
+  @spec process_children(list(Floki.html_node()), Options.t()) :: String.t()
   def process_children(children, opts) do
     children
     |> process_children_to_iolist(opts)

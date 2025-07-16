@@ -18,11 +18,21 @@ defmodule Html2Markdown do
 
   alias Html2Markdown.{Options, Parser, Converter}
 
+  @type html_content :: String.t()
+  @type markdown_content :: String.t()
+  @type conversion_options :: %{
+          optional(:navigation_classes) => [String.t()],
+          optional(:non_content_tags) => [String.t()],
+          optional(:markdown_flavor) => :basic | :gfm,
+          optional(:normalize_whitespace) => boolean()
+        }
+
   @doc """
   Converts the content from an HTML document to Markdown (removing non-content sections and tags)
 
   Uses default options for conversion. To customize behavior, use `convert/2`.
   """
+  @spec convert(html_content()) :: markdown_content()
   def convert(document) when is_binary(document) do
     convert(document, %{})
   end
@@ -48,6 +58,7 @@ defmodule Html2Markdown do
       "\\nHello\\n"
 
   """
+  @spec convert(html_content(), conversion_options()) :: markdown_content()
   def convert(document, options) when is_binary(document) and is_map(options) do
     opts = Options.merge(options)
 
@@ -56,5 +67,6 @@ defmodule Html2Markdown do
     |> Converter.convert_to_markdown(opts)
   end
 
+  @spec convert(any(), any()) :: {:error, String.t()}
   def convert(_document, _options), do: {:error, "Could not convert HTML to Markdown"}
 end

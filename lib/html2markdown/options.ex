@@ -3,6 +3,13 @@ defmodule Html2Markdown.Options do
   Handles configuration options for HTML to Markdown conversion.
   """
 
+  @type t :: %{
+          navigation_classes: [String.t()],
+          non_content_tags: [String.t()],
+          markdown_flavor: :basic | :gfm,
+          normalize_whitespace: boolean()
+        }
+
   @default_options %{
     navigation_classes: ["footer", "menu", "nav", "sidebar", "aside"],
     non_content_tags: [
@@ -36,6 +43,7 @@ defmodule Html2Markdown.Options do
   @doc """
   Returns the default options map.
   """
+  @spec defaults() :: t()
   def defaults do
     @default_options
   end
@@ -43,6 +51,7 @@ defmodule Html2Markdown.Options do
   @doc """
   Merges user options with defaults.
   """
+  @spec merge(map()) :: t()
   def merge(user_options) when is_map(user_options) do
     Map.merge(@default_options, user_options)
   end

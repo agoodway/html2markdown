@@ -7,9 +7,9 @@ defmodule Html2Markdown.ParserTest do
     test "wraps HTML fragments in proper document structure" do
       fragment = "<p>Learn Phoenix LiveView</p>"
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(fragment, opts)
-      
+
       # Should return parsed body content
       assert [{"p", [], ["Learn Phoenix LiveView"]}] = result
     end
@@ -23,10 +23,11 @@ defmodule Html2Markdown.ParserTest do
         </body>
       </html>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       assert [{"p", [], ["Welcome to Elixir"]}] = result
     end
 
@@ -48,15 +49,16 @@ defmodule Html2Markdown.ParserTest do
         </footer>
       </body>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Should only contain main content
       assert [{"main", [], content}] = result
       assert {"h1", [], ["Phoenix Framework"]} in content
       assert {"p", [], ["Build rich, interactive web applications"]} in content
-      
+
       # Navigation elements should be removed
       refute Enum.any?(result, &match?({"nav", _, _}, &1))
       refute Enum.any?(result, &match?({"footer", _, _}, &1))
@@ -73,10 +75,11 @@ defmodule Html2Markdown.ParserTest do
         </article>
       </body>
       """
+
       opts = Options.merge(%{navigation_classes: ["phoenix-nav", "liveview-menu"]})
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Only article should remain
       assert [{"article", [], content}] = result
       assert {"h2", [], ["Understanding GenServers"]} in content
@@ -98,15 +101,16 @@ defmodule Html2Markdown.ParserTest do
         <noscript>Please enable JavaScript</noscript>
       </body>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Should only have article without form/iframe
       assert [{"article", [], content}] = result
       assert {"h1", [], ["Elixir Processes"]} in content
       assert {"p", [], ["Lightweight and isolated"]} in content
-      
+
       # Non-content tags should be removed
       refute has_tag?(result, "script")
       refute has_tag?(result, "style")
@@ -129,10 +133,11 @@ defmodule Html2Markdown.ParserTest do
         <!-- Footer -->
       </body>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Comments should be removed but content preserved
       assert [{"main", [], content}] = result
       assert {"h1", [], ["Phoenix LiveView"]} in content
@@ -155,22 +160,24 @@ defmodule Html2Markdown.ParserTest do
         </div>
       </body>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Should handle nested structure correctly
       assert [{"div", [{"class", "wrapper"}], content}] = result
-      
+
       # Find the main element in content
-      main_elem = Enum.find(content, fn 
-        {"main", _, _} -> true
-        _ -> false
-      end)
-      
+      main_elem =
+        Enum.find(content, fn
+          {"main", _, _} -> true
+          _ -> false
+        end)
+
       assert {"main", [], main_content} = main_elem
       assert {"h1", [], ["Pattern Matching"]} in main_content
-      
+
       # Nested nav elements should be removed
       refute has_tag?(result, "aside")
       refute has_tag?(result, "nav")
@@ -182,10 +189,11 @@ defmodule Html2Markdown.ParserTest do
         <h1>This should be preserved</h1>
       </body>
       """
+
       opts = Options.defaults()
-      
+
       result = Parser.preprocess_content(html, opts)
-      
+
       # Body tag should not be removed even with nav class
       assert [{"h1", [], ["This should be preserved"]}] = result
     end
@@ -195,10 +203,12 @@ defmodule Html2Markdown.ParserTest do
   defp has_tag?(nodes, tag) when is_list(nodes) do
     Enum.any?(nodes, &has_tag?(&1, tag))
   end
-  
+
   defp has_tag?({tag, _, _}, tag), do: true
+
   defp has_tag?({_, _, children}, tag) when is_list(children) do
     has_tag?(children, tag)
   end
+
   defp has_tag?(_, _), do: false
 end

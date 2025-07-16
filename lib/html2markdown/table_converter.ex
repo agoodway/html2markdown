@@ -3,8 +3,9 @@ defmodule Html2Markdown.TableConverter do
   Handles conversion of HTML tables to Markdown format.
   """
 
-  alias Html2Markdown.Converter
+  alias Html2Markdown.{Converter, Options}
 
+  @spec process_table(list(Floki.html_node()), Options.t()) :: String.t()
   def process_table(children, opts) do
     table =
       children
