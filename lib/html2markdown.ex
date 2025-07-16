@@ -9,9 +9,11 @@ defmodule Html2Markdown do
   - `:navigation_classes` - Customize which CSS classes identify navigation elements to remove
   - `:non_content_tags` - Customize which HTML tags to filter out during conversion
   - `:markdown_flavor` - Currently only `:basic` is supported (future enhancement)
-  - `:normalize_whitespace` - Currently not implemented (future enhancement)
+  - `:normalize_whitespace` - Normalize whitespace in text content (Phase 1.3 implemented)
   
-  Note: HTML entity decoding is performed automatically by Floki and cannot be disabled.
+  Note: HTML entity decoding (Phase 1.2) is performed automatically by Floki for all content.
+  Common entities like &amp;, &lt;, &gt;, &quot;, &#39;, &nbsp; and numeric entities 
+  are decoded to their corresponding characters.
   """
 
   @default_options %{
@@ -65,8 +67,9 @@ defmodule Html2Markdown do
       Defaults to common non-content tags like script, style, form, etc.
     * `:markdown_flavor` - Markdown flavor to use. Currently only `:basic` is supported. 
       Defaults to `:basic` (future enhancement for `:gfm`, `:commonmark`)
-    * `:normalize_whitespace` - Whether to normalize whitespace. Defaults to `true`
-      (not yet implemented)
+    * `:normalize_whitespace` - Whether to normalize whitespace. When enabled, multiple 
+      spaces/tabs are converted to single spaces and leading/trailing whitespace is trimmed.
+      Whitespace in code blocks and inline code is always preserved. Defaults to `true`
 
   ## Examples
 
@@ -135,7 +138,10 @@ defmodule Html2Markdown do
   end
 
   defp convert_to_markdown(document, opts) do
-    Enum.map_join(document, "\n\n", &process_node(&1, opts))
+    document
+    |> Enum.map(&process_node(&1, opts))
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.join("\n\n")
   end
 
   defp process_node({"h1", _, children}, opts),
@@ -174,6 +180,10 @@ defmodule Html2Markdown do
   defp process_node({"blockquote", _, children}, opts),
     do: newline() <> "> #{process_children(children, opts)}" <> newline()
 
+  defp process_node({"dl", _, children}, opts), do: process_definition_list(children, opts)
+  defp process_node({"dt", _, children}, opts), do: "**#{process_children(children, opts)}**"
+  defp process_node({"dd", _, children}, opts), do: ": #{process_children(children, opts)}"
+
   defp process_node({"table", _, children}, opts), do: process_table(children, opts)
   defp process_node({"strong", _, children}, opts), do: "**#{process_children(children, opts)}**"
   defp process_node({"b", _, children}, opts), do: "**#{process_children(children, opts)}**"
@@ -183,7 +193,11 @@ defmodule Html2Markdown do
   defp process_node({"del", _, children}, opts), do: "~~#{process_children(children, opts)}~~"
   defp process_node({"sup", _, children}, opts), do: "<sup>#{process_children(children, opts)}</sup>"
   defp process_node({"sub", _, children}, opts), do: "<sub>#{process_children(children, opts)}</sub>"
-  defp process_node({"code", _, children}, opts), do: "`#{process_children(children, opts)}`"
+  defp process_node({"code", _, children}, opts) do
+    # Disable whitespace normalization for inline code
+    code_opts = Map.put(opts, :normalize_whitespace, false)
+    "`#{process_children(children, code_opts)}`"
+  end
   defp process_node({"a", attrs, children}, opts), do: process_href(attrs, children, opts)
   defp process_node({"img", [{"src", src}, {"alt", alt}], _}, _opts), do: "![#{alt}](#{src})"
 
@@ -209,7 +223,16 @@ defmodule Html2Markdown do
 
   defp process_node({"div", _, children}, opts), do: "#{process_children(children, opts)}" <> newline()
   defp process_node({_, _, children}, opts), do: process_children(children, opts)
-  defp process_node(text, _opts) when is_binary(text), do: String.trim(text)
+  defp process_node(text, opts) when is_binary(text) do
+    # IO.inspect({text, opts.normalize_whitespace}, label: "process_node text")
+    if opts.normalize_whitespace do
+      text
+      |> String.trim()
+      |> normalize_whitespace()
+    else
+      text
+    end
+  end
 
   defp process_href(attrs, children, opts) do
     case Enum.find(attrs, fn {attr, _} -> attr == "href" end) do
@@ -225,12 +248,17 @@ defmodule Html2Markdown do
   end
 
   defp process_code_block(children, opts) do
-    newline() <> "```\n#{process_children(children, opts)}\n```" <> newline()
+    # Disable whitespace normalization for code blocks
+    code_opts = Map.put(opts, :normalize_whitespace, false)
+    content = process_children(children, code_opts)
+    "\n```\n#{content}\n```\n"
   end
 
   defp process_code_block(classes, children, opts) do
+    # Disable whitespace normalization for code blocks
+    code_opts = Map.put(opts, :normalize_whitespace, false)
     language = detect_language(classes)
-    newline() <> "```#{language}\n#{process_children(children, opts)}\n```" <> newline()
+    "\n```#{language}\n#{process_children(children, code_opts)}\n```\n"
   end
 
   defp detect_language(classes) do
@@ -238,6 +266,66 @@ defmodule Html2Markdown do
       [_, lang] -> lang
       _ -> ""
     end
+  end
+
+  defp process_definition_list(children, opts) when is_list(children) do
+    # Group elements into definition groups (dt followed by its dd elements)
+    {groups, last_group} = children
+    |> Enum.reduce({[], nil}, fn
+      {"dt", _, _} = dt, {groups, current_group} ->
+        # Start a new group with this dt
+        new_group = %{dt: dt, dds: []}
+        if current_group do
+          {groups ++ [current_group], new_group}
+        else
+          {groups, new_group}
+        end
+      
+      {"dd", _, _} = dd, {groups, current_group} when not is_nil(current_group) ->
+        # Add dd to current group
+        updated_group = Map.update!(current_group, :dds, &(&1 ++ [dd]))
+        {groups, updated_group}
+      
+      {"dd", _, _} = dd, {groups, nil} ->
+        # dd without preceding dt - create a group with no dt
+        {groups ++ [%{dt: nil, dds: [dd]}], nil}
+      
+      other, {groups, current_group} ->
+        # Other elements get their own group
+        groups_with_current = if current_group, do: groups ++ [current_group], else: groups
+        {groups_with_current ++ [%{dt: nil, dds: [], other: other}], nil}
+    end)
+    
+    # Add the last group if any
+    all_groups = if last_group do
+      groups ++ [last_group]
+    else
+      groups
+    end
+    
+    # Process each group
+    result = all_groups
+    |> Enum.map_join("\n\n", fn
+      %{dt: nil, dds: [], other: other} ->
+        # Just process the other element
+        process_node(other, opts)
+        
+      %{dt: nil, dds: dds} ->
+        # Just dd elements without dt
+        Enum.map_join(dds, "\n", &process_node(&1, opts))
+        
+      %{dt: dt, dds: []} ->
+        # Just dt without dd
+        process_node(dt, opts)
+        
+      %{dt: dt, dds: dds} ->
+        # dt with dd elements
+        dt_text = process_node(dt, opts)
+        dd_texts = Enum.map_join(dds, "\n", &process_node(&1, opts))
+        dt_text <> "\n" <> dd_texts
+    end)
+    
+    newline() <> result <> newline()
   end
 
   defp process_ul_list(children, opts) when is_list(children) do
@@ -472,11 +560,30 @@ defmodule Html2Markdown do
   defp header_separator(_), do: "| --- |"
 
   defp process_children(children, opts) do
-    children
-    |> Enum.map_join(" ", &process_node(&1, opts))
-    |> String.trim()
+    result = 
+      children
+      |> Enum.map(&process_node(&1, opts))
+      |> Enum.join(" ")
+    
+    # Only trim if we're normalizing whitespace
+    if opts.normalize_whitespace do
+      String.trim(result)
+    else
+      result
+    end
   end
 
   defp newline, do: "\n"
   defp newline(count), do: String.duplicate("\n", count)
+
+  defp normalize_whitespace(text) do
+    text
+    |> String.split("\n", trim: false)
+    |> Enum.map(fn line ->
+      line
+      |> String.replace(~r/[ \t]+/, " ")
+      |> String.trim()
+    end)
+    |> Enum.join("\n")
+  end
 end

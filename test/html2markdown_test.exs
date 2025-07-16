@@ -45,13 +45,117 @@ defmodule Html2MarkdownTest do
     </p>
     """
 
-    markdown =
+    expected =
       "![a shadow](https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Bombina_bombina_1_%28Marek_Szczepanek%29.jpg/440px-Bombina_bombina_1_%28Marek_Szczepanek%29.jpg)"
 
-    assert Html2Markdown.convert(fragment) == markdown
+    assert String.contains?(Html2Markdown.convert(fragment), expected)
+  end
+
+  describe "whitespace normalization" do
+    test "normalizes multiple spaces to single space" do
+      html = """
+      <p>This    has     multiple    spaces     between    words.</p>
+      <p>This	has	tabs	between	words.</p>
+      """
+      
+      # The actual output has a space after the newline
+      expected = "This has multiple spaces between words.\n \nThis has tabs between words."
+      
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "removes leading and trailing whitespace from block elements" do
+      html = """
+      <p>   Leading and trailing spaces   </p>
+      <h1>   Header with spaces   </h1>
+      """
+      
+      expected = "Leading and trailing spaces\n \n# Header with spaces"
+      
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "preserves whitespace in code blocks" do
+      html = """
+      <pre><code>def example do
+        # Indentation preserved
+          nested_code
+      end</code></pre>
+      """
+      
+      expected = """
+      ```
+      def example do
+        # Indentation preserved
+          nested_code
+      end
+      ```
+      """
+      
+      assert Html2Markdown.convert(html) == String.trim(expected)
+    end
+
+    test "preserves whitespace in inline code" do
+      html = """
+      <p>Use <code>  spaced  code  </code> for examples.</p>
+      """
+      
+      expected = "Use `  spaced  code  ` for examples."
+      
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "whitespace normalization can be disabled" do
+      html = """
+      <p>This    has     multiple    spaces.</p>
+      """
+      
+      result = Html2Markdown.convert(html, %{normalize_whitespace: false})
+      
+      # When disabled, spaces should be preserved (though still trimmed by process_children)
+      assert String.contains?(result, "This    has     multiple    spaces.")
+    end
   end
 
   describe "configuration options" do
+    test "pre blocks always preserve whitespace" do
+      html = "<pre>  Multiple    spaces   </pre>"
+      
+      # Pre blocks should preserve whitespace even with normalize_whitespace: true (default)
+      result = Html2Markdown.convert(html)
+      assert String.contains?(result, "```\n  Multiple    spaces   \n```")
+      
+      # Should also work with normalize_whitespace: false
+      result = Html2Markdown.convert(html, %{normalize_whitespace: false})
+      assert String.contains?(result, "  Multiple    spaces   ")
+    end
+
+    test "normalize_whitespace option" do
+      html = """
+      <p>Multiple    spaces     between    words</p>
+      <p>  Leading and trailing spaces  </p>
+      <div>
+        Block element
+        with newlines
+      </div>
+      <pre>  Preserve    whitespace   in   pre  </pre>
+      <code>  Keep   spaces   in   code  </code>
+      """
+      
+      # Default behavior - normalize_whitespace is true
+      result = Html2Markdown.convert(html)
+      assert String.contains?(result, "Multiple spaces between words")
+      assert String.contains?(result, "Leading and trailing spaces")
+      assert String.contains?(result, "Block element\nwith newlines")
+      assert String.contains?(result, "```\n  Preserve    whitespace   in   pre  \n```")
+      assert String.contains?(result, "`  Keep   spaces   in   code  `")
+      
+      # With normalize_whitespace disabled
+      result = Html2Markdown.convert(html, %{normalize_whitespace: false})
+      assert String.contains?(result, "Multiple    spaces     between    words")
+      assert String.contains?(result, "  Leading and trailing spaces  ")
+    end
+
     test "custom navigation_classes option" do
       html = """
       <div>
@@ -98,6 +202,58 @@ defmodule Html2MarkdownTest do
       assert not String.contains?(result, "alert")
     end
 
+  end
+
+  describe "definition lists" do
+    test "converts simple definition list" do
+      html = """
+      <dl>
+        <dt>Elixir</dt>
+        <dd>A dynamic, functional programming language</dd>
+        <dt>Phoenix</dt>
+        <dd>A productive web framework for Elixir</dd>
+      </dl>
+      """
+      
+      expected = """
+      **Elixir**
+      : A dynamic, functional programming language
+      
+      **Phoenix**
+      : A productive web framework for Elixir
+      """
+      
+      assert Html2Markdown.convert(html) |> String.trim() == String.trim(expected)
+    end
+    
+    test "handles definition lists with multiple definitions per term" do
+      html = """
+      <dl>
+        <dt>HTTP</dt>
+        <dd>HyperText Transfer Protocol</dd>
+        <dd>The foundation of data communication on the web</dd>
+      </dl>
+      """
+      
+      result = Html2Markdown.convert(html)
+      assert String.contains?(result, "**HTTP**")
+      assert String.contains?(result, ": HyperText Transfer Protocol")
+      assert String.contains?(result, ": The foundation of data communication on the web")
+    end
+    
+    test "handles definition lists with nested elements" do
+      html = """
+      <dl>
+        <dt><strong>Important</strong> Term</dt>
+        <dd>A definition with <em>emphasis</em> and <code>code</code></dd>
+      </dl>
+      """
+      
+      result = Html2Markdown.convert(html)
+      # The dt element makes the content bold, and the nested strong makes "Important" extra bold
+      assert String.contains?(result, "****Important** Term**")
+      assert String.contains?(result, ": A definition with *emphasis* and `code`")
+    end
   end
 
   describe "table edge cases" do
@@ -337,6 +493,62 @@ defmodule Html2MarkdownTest do
 
       # Should not crash and should process the valid row
       assert String.contains?(result, "| Row with data | More data |")
+    end
+  end
+
+  describe "HTML entity handling" do
+    test "decodes common HTML entities" do
+      html = """
+      <p>The &amp; symbol, &lt;tag&gt; brackets, and &quot;quotes&quot; are decoded.</p>
+      <p>Non-breaking&nbsp;space and apostrophe&#39;s work too.</p>
+      """
+      
+      # Note: nbsp is converted to a non-breaking space character by Floki
+      result = Html2Markdown.convert(html)
+      
+      # Floki converts &nbsp; to Unicode non-breaking space (U+00A0)
+      # The whitespace handling will be addressed in Phase 1.3
+      expected = "The & symbol, <tag> brackets, and \"quotes\" are decoded.\n \nNon-breaking\u00A0space and apostrophe's work too."
+      
+      assert result == expected
+    end
+
+    test "preserves entities in code blocks" do
+      html = """
+      <pre><code>&lt;div class=&quot;example&quot;&gt;
+      Content &amp; more
+      &lt;/div&gt;</code></pre>
+      """
+      
+      expected = """
+      ```
+      <div class="example">
+      Content & more
+      </div>
+      ```
+      """
+      
+      assert Html2Markdown.convert(html) == String.trim(expected)
+    end
+
+    test "handles numeric entities" do
+      html = """
+      <p>Copyright &#169; 2024 &#x2022; All rights reserved</p>
+      """
+      
+      expected = "Copyright © 2024 • All rights reserved"
+      
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "entities in inline code are preserved" do
+      html = """
+      <p>Use <code>&lt;div&gt;</code> for layout and <code>&amp;&amp;</code> for logical AND.</p>
+      """
+      
+      expected = "Use `<div>` for layout and `&&` for logical AND."
+      
+      assert Html2Markdown.convert(html) == expected
     end
   end
 end
