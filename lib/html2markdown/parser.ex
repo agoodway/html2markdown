@@ -7,22 +7,14 @@ defmodule Html2Markdown.Parser do
   Preprocesses HTML content by parsing it and filtering out non-content elements.
   """
   def preprocess_content(content, opts) do
-    body_content = content
+    # Convert lists to MapSets for O(1) lookup performance
+    non_content_tags_set = MapSet.new(opts.non_content_tags)
+    navigation_classes_set = MapSet.new(opts.navigation_classes)
+    
+    content
     |> prep_document()
     |> Floki.parse_document!()
-    |> Floki.find("body")
-    |> Floki.filter_out(:comment)
-    
-    # Extract children from body tag
-    children = case body_content do
-      [{"body", _, children}] -> children
-      [] -> []
-      other -> other
-    end
-    
-    children
-    |> remove_non_content_tags(opts.non_content_tags)
-    |> remove_nav_elements(opts.navigation_classes)
+    |> extract_and_filter_body(non_content_tags_set, navigation_classes_set)
   end
 
   defp prep_document(content) do
@@ -37,31 +29,65 @@ defmodule Html2Markdown.Parser do
 
   defp wrap_fragment(fragment), do: "<html><body>#{fragment}</body></html>"
 
-  defp remove_non_content_tags(document, non_content_tags) do
-    Enum.reduce(non_content_tags, document, &Floki.filter_out(&2, &1))
+  # Optimized: Single traversal for all filtering operations
+  defp extract_and_filter_body(document, non_content_tags_set, navigation_classes_set) do
+    # Find body tag and extract its children
+    body_nodes = Floki.find(document, "body")
+    
+    nodes_to_filter = case body_nodes do
+      [{"body", _, children}] -> children
+      [] -> document
+      other -> other
+    end
+    
+    # Filter all nodes in a single pass
+    filter_nodes(nodes_to_filter, non_content_tags_set, navigation_classes_set)
   end
 
-  defp remove_nav_elements(document, navigation_classes) do
-    Floki.find_and_update(document, "*", fn
-      {tag, attrs} when is_list(attrs) ->
-        case List.keyfind(attrs, "class", 0) do
-          {"class", class} ->
-            if contains_nav_class?(class, navigation_classes) && tag != "body" do
-              :delete
-            else
-              {tag, attrs}
-            end
-
-          _ ->
-            {tag, attrs}
-        end
-
-      element ->
-        element
-    end)
+  defp filter_children(children, non_content_tags_set, navigation_classes_set) do
+    children
+    |> Enum.map(&filter_node(&1, non_content_tags_set, navigation_classes_set))
+    |> Enum.reject(&is_nil/1)
   end
 
-  defp contains_nav_class?(string, navigation_classes) do
-    Enum.any?(navigation_classes, &String.contains?(string, &1))
+  defp filter_nodes(nodes, non_content_tags_set, navigation_classes_set) when is_list(nodes) do
+    nodes
+    |> Enum.map(&filter_node(&1, non_content_tags_set, navigation_classes_set))
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp filter_node({:comment, _}, _, _), do: nil
+  
+  defp filter_node({tag, attrs, children}, non_content_tags_set, navigation_classes_set) when is_binary(tag) do
+    cond do
+      # Check if it's a non-content tag
+      MapSet.member?(non_content_tags_set, tag) ->
+        nil
+      
+      # Check for navigation classes (except body)
+      tag != "body" && has_nav_class?(attrs, navigation_classes_set) ->
+        nil
+      
+      # Otherwise, filter children recursively
+      true ->
+        filtered_children = filter_children(children, non_content_tags_set, navigation_classes_set)
+        {tag, attrs, filtered_children}
+    end
+  end
+  
+  defp filter_node(node, _, _), do: node
+
+  # Optimized: Check if any navigation class is contained in the class string
+  defp has_nav_class?(attrs, navigation_classes_set) do
+    case List.keyfind(attrs, "class", 0) do
+      {"class", class_string} ->
+        # Check if any navigation class is a substring of the class string
+        Enum.any?(navigation_classes_set, fn nav_class ->
+          String.contains?(class_string, nav_class)
+        end)
+      
+      _ ->
+        false
+    end
   end
 end

@@ -7,91 +7,157 @@ defmodule Html2Markdown.Converter do
 
   def convert_to_markdown(document, opts) do
     document
-    |> Enum.map(&process_node(&1, opts))
-    |> Enum.reject(&(&1 == ""))
-    |> Enum.join("\n\n")
+    |> build_markdown_iolist(opts)
+    |> IO.iodata_to_binary()
   end
 
-  def process_node({"h1", _, children}, opts),
-    do: "\n" <> "# #{process_children(children, opts)}" <> "\n"
+  # Optimized: Build iolist instead of string concatenation
+  defp build_markdown_iolist(nodes, opts) do
+    nodes
+    |> Enum.reduce([], fn node, acc ->
+      case process_node_to_iolist(node, opts) do
+        [] -> acc
+        "" -> acc
+        iodata ->
+          if acc == [] do
+            [iodata]
+          else
+            [acc, "\n\n", iodata]
+          end
+      end
+    end)
+  end
 
-  def process_node({"h2", _, children}, opts),
-    do: "\n" <> "## #{process_children(children, opts)}" <> "\n"
+  # Process nodes to iolist for better performance
+  defp process_node_to_iolist({"h1", _, children}, opts),
+    do: ["\n", "# ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"h3", _, children}, opts),
-    do: "\n" <> "### #{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"h2", _, children}, opts),
+    do: ["\n", "## ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"h4", _, children}, opts),
-    do: "\n" <> "#### #{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"h3", _, children}, opts),
+    do: ["\n", "### ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"h5", _, children}, opts),
-    do: "\n" <> "##### #{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"h4", _, children}, opts),
+    do: ["\n", "#### ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"h6", _, children}, opts),
-    do: "\n" <> "###### #{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"h5", _, children}, opts),
+    do: ["\n", "##### ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"p", _, children}, opts),
-    do: "\n" <> "#{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"h6", _, children}, opts),
+    do: ["\n", "###### ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"ul", _, children}, opts), do: process_ul_list(children, opts)
-  def process_node({"ol", _, children}, opts), do: process_ol_list(children, opts)
-  def process_node({"li", _, children}, opts), do: "- " <> process_children(children, opts) <> "\n"
+  defp process_node_to_iolist({"p", _, children}, opts),
+    do: ["\n", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"pre", _, [{"code", [{"class", classes}], children}]}, opts),
-    do: process_code_block(classes, children, opts)
+  defp process_node_to_iolist({"ul", _, children}, opts),
+    do: process_ul_list_to_iolist(children, opts)
 
-  def process_node({"pre", _, [{"code", _, children}]}, opts),
-    do: process_code_block(children, opts)
+  defp process_node_to_iolist({"ol", _, children}, opts),
+    do: process_ol_list_to_iolist(children, opts)
 
-  def process_node({"pre", _, children}, opts), do: process_code_block(children, opts)
+  defp process_node_to_iolist({"li", _, children}, opts),
+    do: ["- ", process_children_to_iolist(children, opts), "\n"]
 
-  def process_node({"blockquote", _, children}, opts),
-    do: "\n" <> "> #{process_children(children, opts)}" <> "\n"
+  defp process_node_to_iolist({"pre", _, [{"code", [{"class", classes}], children}]}, opts),
+    do: process_code_block_to_iolist(classes, children, opts)
 
-  def process_node({"dl", _, children}, opts), do: process_definition_list(children, opts)
-  def process_node({"dt", _, children}, opts), do: "**#{process_children(children, opts)}**"
-  def process_node({"dd", _, children}, opts), do: ": #{process_children(children, opts)}"
+  defp process_node_to_iolist({"pre", _, [{"code", _, children}]}, opts),
+    do: process_code_block_to_iolist(children, opts)
 
-  def process_node({"table", _, children}, opts), do: TableConverter.process_table(children, opts)
-  def process_node({"strong", _, children}, opts), do: "**#{process_children(children, opts)}**"
-  def process_node({"b", _, children}, opts), do: "**#{process_children(children, opts)}**"
-  def process_node({"em", _, children}, opts), do: "*#{process_children(children, opts)}*"
-  def process_node({"i", _, children}, opts), do: "*#{process_children(children, opts)}*"
-  def process_node({"u", _, children}, opts), do: "<u>#{process_children(children, opts)}</u>"
-  def process_node({"del", _, children}, opts), do: "~~#{process_children(children, opts)}~~"
-  def process_node({"sup", _, children}, opts), do: "<sup>#{process_children(children, opts)}</sup>"
-  def process_node({"sub", _, children}, opts), do: "<sub>#{process_children(children, opts)}</sub>"
-  def process_node({"code", _, children}, opts) do
+  defp process_node_to_iolist({"pre", _, children}, opts),
+    do: process_code_block_to_iolist(children, opts)
+
+  defp process_node_to_iolist({"blockquote", _, children}, opts),
+    do: ["\n", "> ", process_children_to_iolist(children, opts), "\n"]
+
+  defp process_node_to_iolist({"dl", _, children}, opts),
+    do: process_definition_list_to_iolist(children, opts)
+
+  defp process_node_to_iolist({"dt", _, children}, opts),
+    do: ["**", process_children_to_iolist(children, opts), "**"]
+
+  defp process_node_to_iolist({"dd", _, children}, opts),
+    do: [": ", process_children_to_iolist(children, opts)]
+
+  defp process_node_to_iolist({"table", _, children}, opts),
+    do: TableConverter.process_table(children, opts)
+
+  defp process_node_to_iolist({"strong", _, children}, opts),
+    do: ["**", process_children_to_iolist(children, opts), "**"]
+
+  defp process_node_to_iolist({"b", _, children}, opts),
+    do: ["**", process_children_to_iolist(children, opts), "**"]
+
+  defp process_node_to_iolist({"em", _, children}, opts),
+    do: ["*", process_children_to_iolist(children, opts), "*"]
+
+  defp process_node_to_iolist({"i", _, children}, opts),
+    do: ["*", process_children_to_iolist(children, opts), "*"]
+
+  defp process_node_to_iolist({"u", _, children}, opts),
+    do: ["<u>", process_children_to_iolist(children, opts), "</u>"]
+
+  defp process_node_to_iolist({"del", _, children}, opts),
+    do: ["~~", process_children_to_iolist(children, opts), "~~"]
+
+  defp process_node_to_iolist({"sup", _, children}, opts),
+    do: ["<sup>", process_children_to_iolist(children, opts), "</sup>"]
+
+  defp process_node_to_iolist({"sub", _, children}, opts),
+    do: ["<sub>", process_children_to_iolist(children, opts), "</sub>"]
+
+  defp process_node_to_iolist({"code", _, children}, opts) do
     # Disable whitespace normalization for inline code
     code_opts = Map.put(opts, :normalize_whitespace, false)
-    "`#{process_children(children, code_opts)}`"
+    ["`", process_children_to_iolist(children, code_opts), "`"]
   end
-  def process_node({"a", attrs, children}, opts), do: process_href(attrs, children, opts)
-  def process_node({"img", [{"src", src}, {"alt", alt}], _}, _opts), do: "![#{alt}](#{src})"
 
-  def process_node({"caption", _, children}, opts),
-    do: "| " <> process_children(children, opts) <> " |" <> "\n"
+  defp process_node_to_iolist({"a", attrs, children}, opts),
+    do: process_href_to_iolist(attrs, children, opts)
 
-  def process_node({"figcaption", _, children}, opts), do: "**#{process_children(children, opts)}**"
-  def process_node({"br", _, _}, _opts), do: "\n\n"
-  def process_node({"hr", _, _}, _opts), do: "\n" <> "\n" <> "---" <> "\n\n"
-
-  def process_node({"section", _, children}, opts),
-    do: "\n#{process_children(children, opts)}\n"
-
-  def process_node({"article", _, children}, opts),
-    do: "\n#{process_children(children, opts)}\n"
-
-  def process_node({"picture", _, children}, _opts) do
-    with {"img", attrs, _} <- Enum.find(children, fn {tag, _, _} -> tag == "img" end),
-         %{"alt" => alt, "src" => src} <- Enum.into(attrs, %{}) do
-      "![#{alt}](#{src})"
+  defp process_node_to_iolist({"img", attrs, _}, _opts) do
+    case {List.keyfind(attrs, "src", 0), List.keyfind(attrs, "alt", 0)} do
+      {{"src", src}, {"alt", alt}} -> ["![", alt, "](", src, ")"]
+      {{"src", src}, _} -> ["![](", src, ")"]
+      _ -> []
     end
   end
 
-  def process_node({"div", _, children}, opts), do: "#{process_children(children, opts)}" <> "\n"
-  def process_node({_, _, children}, opts), do: process_children(children, opts)
-  def process_node(text, opts) when is_binary(text) do
+  defp process_node_to_iolist({"caption", _, children}, opts),
+    do: ["| ", process_children_to_iolist(children, opts), " |\n"]
+
+  defp process_node_to_iolist({"figcaption", _, children}, opts),
+    do: ["**", process_children_to_iolist(children, opts), "**"]
+
+  defp process_node_to_iolist({"br", _, _}, _opts), do: "\n\n"
+  defp process_node_to_iolist({"hr", _, _}, _opts), do: "\n\n---\n\n"
+
+  defp process_node_to_iolist({"section", _, children}, opts),
+    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+
+  defp process_node_to_iolist({"article", _, children}, opts),
+    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+
+  defp process_node_to_iolist({"picture", _, children}, _opts) do
+    case Enum.find(children, fn {tag, _, _} -> tag == "img" end) do
+      {"img", attrs, _} ->
+        case {List.keyfind(attrs, "src", 0), List.keyfind(attrs, "alt", 0)} do
+          {{"src", src}, {"alt", alt}} -> ["![", alt, "](", src, ")"]
+          {{"src", src}, _} -> ["![](", src, ")"]
+          _ -> []
+        end
+      _ -> []
+    end
+  end
+
+  defp process_node_to_iolist({"div", _, children}, opts),
+    do: [process_children_to_iolist(children, opts), "\n"]
+
+  defp process_node_to_iolist({_, _, children}, opts),
+    do: process_children_to_iolist(children, opts)
+
+  defp process_node_to_iolist(text, opts) when is_binary(text) do
     if opts.normalize_whitespace do
       text
       |> String.trim()
@@ -101,31 +167,32 @@ defmodule Html2Markdown.Converter do
     end
   end
 
-  defp process_href(attrs, children, opts) do
-    case Enum.find(attrs, fn {attr, _} -> attr == "href" end) do
+  defp process_href_to_iolist(attrs, children, opts) do
+    case List.keyfind(attrs, "href", 0) do
       {"href", url} ->
-        case process_children(children, opts) do
-          "" -> "[#{url}](#{url})"
-          children -> "[#{children}](#{url})"
+        children_text = IO.iodata_to_binary(process_children_to_iolist(children, opts))
+        if children_text == "" do
+          ["[", url, "](", url, ")"]
+        else
+          ["[", children_text, "](", url, ")"]
         end
-
       _ ->
-        process_children(children, opts)
+        process_children_to_iolist(children, opts)
     end
   end
 
-  defp process_code_block(children, opts) do
+  defp process_code_block_to_iolist(children, opts) do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
-    content = process_children(children, code_opts)
-    "\n```\n#{content}\n```\n"
+    content = process_children_to_iolist(children, code_opts)
+    ["\n```\n", content, "\n```\n"]
   end
 
-  defp process_code_block(classes, children, opts) do
+  defp process_code_block_to_iolist(classes, children, opts) do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
     language = detect_language(classes)
-    "\n```#{language}\n#{process_children(children, code_opts)}\n```\n"
+    ["\n```", language, "\n", process_children_to_iolist(children, code_opts), "\n```\n"]
   end
 
   defp detect_language(classes) do
@@ -135,7 +202,7 @@ defmodule Html2Markdown.Converter do
     end
   end
 
-  defp process_definition_list(children, opts) when is_list(children) do
+  defp process_definition_list_to_iolist(children, opts) when is_list(children) do
     # Group elements into definition groups (dt followed by its dd elements)
     {groups, last_group} = children
     |> Enum.reduce({[], nil}, fn
@@ -172,63 +239,77 @@ defmodule Html2Markdown.Converter do
 
     # Process each group
     result = all_groups
-    |> Enum.map_join("\n\n", fn
-      %{dt: nil, dds: [], other: other} ->
-        # Just process the other element
-        process_node(other, opts)
+    |> Enum.reduce([], fn group, acc ->
+      group_iolist = case group do
+        %{dt: nil, dds: [], other: other} ->
+          # Just process the other element
+          process_node_to_iolist(other, opts)
 
-      %{dt: nil, dds: dds} ->
-        # Just dd elements without dt
-        Enum.map_join(dds, "\n", &process_node(&1, opts))
+        %{dt: nil, dds: dds} ->
+          # Just dd elements without dt
+          Enum.map(dds, &process_node_to_iolist(&1, opts))
+          |> Enum.intersperse("\n")
 
-      %{dt: dt, dds: []} ->
-        # Just dt without dd
-        process_node(dt, opts)
+        %{dt: dt, dds: []} ->
+          # Just dt without dd
+          process_node_to_iolist(dt, opts)
 
-      %{dt: dt, dds: dds} ->
-        # dt with dd elements
-        dt_text = process_node(dt, opts)
-        dd_texts = Enum.map_join(dds, "\n", &process_node(&1, opts))
-        dt_text <> "\n" <> dd_texts
+        %{dt: dt, dds: dds} ->
+          # dt with dd elements
+          dt_iolist = process_node_to_iolist(dt, opts)
+          dd_iolists = Enum.map(dds, &process_node_to_iolist(&1, opts))
+          [dt_iolist, "\n", Enum.intersperse(dd_iolists, "\n")]
+      end
+
+      if acc == [] do
+        [group_iolist]
+      else
+        [acc, "\n\n", group_iolist]
+      end
     end)
 
-    "\n" <> result <> "\n"
+    ["\n", result, "\n"]
   end
 
-  defp process_ul_list(children, opts) when is_list(children) do
-    "\n" <> Enum.map_join(children, "\n", &process_list_item(&1, opts)) <> "\n"
+  defp process_ul_list_to_iolist(children, opts) when is_list(children) do
+    items = children
+    |> Enum.map(&process_list_item_to_iolist(&1, opts))
+    |> Enum.intersperse("\n")
+
+    ["\n", items, "\n"]
   end
 
-  defp process_ol_list(children, opts) when is_list(children) do
-    ol_list =
-      children
-      |> Enum.with_index()
-      |> Enum.map_join("\n", fn {child, index} ->
-        process_ordered_list_item(child, index + 1, opts)
-      end)
+  defp process_ol_list_to_iolist(children, opts) when is_list(children) do
+    items = children
+    |> Enum.with_index(1)
+    |> Enum.map(fn {child, index} ->
+      process_ordered_list_item_to_iolist(child, index, opts)
+    end)
+    |> Enum.intersperse("\n")
 
-    "\n" <> ol_list <> "\n"
+    ["\n", items, "\n"]
   end
 
-  defp process_list_item({"li", _, children}, opts), do: "- " <> process_children(children, opts)
-  defp process_list_item(other, opts), do: process_node(other, opts)
+  defp process_list_item_to_iolist({"li", _, children}, opts),
+    do: ["- ", process_children_to_iolist(children, opts)]
+  defp process_list_item_to_iolist(other, opts),
+    do: process_node_to_iolist(other, opts)
 
-  defp process_ordered_list_item({"li", _, children}, index, opts),
-    do: "#{index}. " <> process_children(children, opts)
+  defp process_ordered_list_item_to_iolist({"li", _, children}, index, opts),
+    do: [Integer.to_string(index), ". ", process_children_to_iolist(children, opts)]
+  defp process_ordered_list_item_to_iolist(other, _index, opts),
+    do: process_node_to_iolist(other, opts)
 
-  defp process_ordered_list_item(other, _index, opts), do: process_node(other, opts)
-
-  def process_children(children, opts) do
-    result =
-      children
-      |> Enum.map(&process_node(&1, opts))
-      |> Enum.join(" ")
+  defp process_children_to_iolist(children, opts) do
+    iolist = children
+    |> Enum.map(&process_node_to_iolist(&1, opts))
+    |> Enum.intersperse(" ")
 
     # Only trim if we're normalizing whitespace
     if opts.normalize_whitespace do
-      String.trim(result)
+      iolist |> IO.iodata_to_binary() |> String.trim()
     else
-      result
+      iolist
     end
   end
 
@@ -241,5 +322,18 @@ defmodule Html2Markdown.Converter do
       |> String.trim()
     end)
     |> Enum.join("\n")
+  end
+
+  # Compatibility wrapper functions
+  def process_node(node, opts) do
+    node
+    |> process_node_to_iolist(opts)
+    |> IO.iodata_to_binary()
+  end
+
+  def process_children(children, opts) do
+    children
+    |> process_children_to_iolist(opts)
+    |> IO.iodata_to_binary()
   end
 end
