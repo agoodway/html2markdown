@@ -1,6 +1,31 @@
 defmodule Html2Markdown.TableConverter do
   @moduledoc """
   Handles conversion of HTML tables to Markdown format.
+
+  Converts HTML tables to GitHub Flavored Markdown tables with support for:
+  - Header detection (from `<th>` elements or `<thead>`)
+  - Complex table structures with `<thead>` and `<tbody>`
+  - Colspan handling (content repeated across columns)
+  - Empty cells and malformed tables
+
+  ## Examples
+
+      # Simple table
+      <table>
+        <tr><th>Name</th><th>Age</th></tr>
+        <tr><td>Alice</td><td>30</td></tr>
+      </table>
+
+      # Converts to:
+      | Name | Age |
+      | --- | --- |
+      | Alice | 30 |
+
+  ## Implementation Notes
+
+  - Tables without headers still generate valid Markdown tables
+  - Empty cells are preserved as empty columns
+  - Malformed HTML is handled gracefully
   """
 
   alias Html2Markdown.{Converter, Options}

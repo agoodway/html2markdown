@@ -1,19 +1,118 @@
 defmodule Html2Markdown do
   @moduledoc """
-  A library for converting HTML to Markdown syntax in Elixir
+  Convert HTML documents to clean, readable Markdown.
 
-  ## Configuration Options
+  Html2Markdown intelligently extracts content from HTML while filtering out
+  navigation, advertisements, and other non-content elements. It's designed
+  for web scraping, content migration, and any scenario where you need to
+  convert HTML to Markdown.
 
-  The library supports configuration options via `convert/2`:
+  ## Basic Usage
 
-  - `:navigation_classes` - Customize which CSS classes identify navigation elements to remove
-  - `:non_content_tags` - Customize which HTML tags to filter out during conversion
-  - `:markdown_flavor` - Currently only `:basic` is supported (future enhancement)
-  - `:normalize_whitespace` - Normalize whitespace in text content
+      iex> Html2Markdown.convert("<h1>Hello</h1><p>World</p>")
+      "\\n# Hello\\n\\n\\n\\nWorld\\n"
 
-  Note: HTML entity decoding is performed automatically by Floki for all content.
-  Common entities like &amp;, &lt;, &gt;, &quot;, &#39;, &nbsp; and numeric entities
-  are decoded to their corresponding characters.
+  ## Configuration
+
+  The library supports extensive configuration through the second parameter:
+
+      Html2Markdown.convert(html, %{
+        navigation_classes: ["nav", "menu", "sidebar"],
+        non_content_tags: ["script", "style", "iframe"],
+        markdown_flavor: :basic,
+        normalize_whitespace: true
+      })
+
+  ## Features
+
+  - **Smart filtering** - Automatically removes common non-content elements
+  - **HTML5 support** - Handles modern semantic elements
+  - **Table conversion** - Converts HTML tables to Markdown tables
+  - **Entity decoding** - Automatically handled by Floki
+  - **Whitespace normalization** - Optional cleanup of excessive whitespace
+  - **Configurable** - Customize filtering behavior to your needs
+
+  ## Examples
+
+  ### Web Scraping
+
+      # Extract article content from a web page
+      {:ok, %{body: html}} = HTTPoison.get("https://example.com/article")
+      
+      content = Html2Markdown.convert(html, %{
+        navigation_classes: ["header", "footer", "nav", "sidebar"],
+        normalize_whitespace: true
+      })
+
+  ### Content Migration
+
+      # Convert WordPress posts to Markdown
+      post_html
+      |> Html2Markdown.convert()
+      |> File.write!("post.md")
+
+  ### Email Processing
+
+      # Clean up HTML emails
+      email_body
+      |> Html2Markdown.convert(%{
+        non_content_tags: ["style", "meta", "link"],
+        navigation_classes: ["unsubscribe", "footer"]
+      })
+
+  ## Supported HTML Elements
+
+  ### Text Elements
+  - Headings: `<h1>` through `<h6>`
+  - Paragraphs: `<p>`
+  - Emphasis: `<em>`, `<i>` → `*italic*`
+  - Strong: `<strong>`, `<b>` → `**bold**`
+  - Strikethrough: `<del>` → `~~strikethrough~~`
+  - Code: `<code>` → `` `code` ``
+  - Preformatted: `<pre>` → ``` code blocks ```
+
+  ### Lists
+  - Unordered lists: `<ul>`, `<li>` → `- item`
+  - Ordered lists: `<ol>`, `<li>` → `1. item`
+  - Definition lists: `<dl>`, `<dt>`, `<dd>`
+
+  ### Links and Media
+  - Links: `<a href="...">` → `[text](url)`
+  - Images: `<img>` → `![alt](src)`
+  - Picture: `<picture>` with fallback to `<img>`
+
+  ### Tables
+  Full support for HTML tables with automatic header detection:
+
+      <table>
+        <tr><th>Name</th><th>Value</th></tr>
+        <tr><td>Elixir</td><td>1.15</td></tr>
+      </table>
+
+  Converts to:
+
+      | Name | Value |
+      | --- | --- |
+      | Elixir | 1.15 |
+
+  ### HTML5 Elements
+  - `<details>` / `<summary>` - Collapsible sections
+  - `<mark>` - Highlighted text (GFM: `==marked==`)
+  - `<abbr title="...">` - Abbreviations with expansion
+  - `<cite>` - Citations in italics
+  - `<q cite="...">` - Inline quotes with optional citation
+  - `<time datetime="...">` - Time with preserved datetime
+  - `<video>` - Converted to markdown link
+
+  ## Entity Handling
+
+  HTML entities are automatically decoded by Floki:
+  - `&amp;` → `&`
+  - `&lt;` → `<`
+  - `&gt;` → `>`
+  - `&nbsp;` → non-breaking space
+  - `&#123;` → `{`
+  - `&#xAB;` → `«`
   """
 
   alias Html2Markdown.{Options, Parser, Converter}

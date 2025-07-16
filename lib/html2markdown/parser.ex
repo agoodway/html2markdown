@@ -1,6 +1,21 @@
 defmodule Html2Markdown.Parser do
   @moduledoc """
   Handles HTML preprocessing and parsing operations.
+
+  This module is responsible for:
+  1. Parsing HTML content using Floki
+  2. Filtering out non-content elements
+  3. Preparing the document tree for conversion
+
+  ## Filtering Strategy
+
+  The parser removes elements in two ways:
+  - **Tag-based filtering**: Removes elements like `<script>`, `<style>`, `<nav>`
+  - **Class-based filtering**: Removes elements with navigation classes like "footer", "sidebar"
+
+  ## Performance
+
+  Uses MapSet for O(1) lookup performance when checking tags and classes.
   """
 
   alias Html2Markdown.Options

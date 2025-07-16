@@ -1,6 +1,26 @@
 defmodule Html2Markdown.Converter do
   @moduledoc """
   Handles the conversion of HTML nodes to Markdown format.
+
+  This module is responsible for transforming parsed HTML nodes into their
+  Markdown equivalents. It uses an efficient IOList-based approach for
+  building the output string.
+
+  ## Implementation Details
+
+  The converter uses pattern matching to handle different HTML elements:
+  - Headers (`h1`-`h6`) → Markdown headers with appropriate `#` prefixes
+  - Text formatting (`strong`, `em`, `del`) → Markdown emphasis markers
+  - Lists (`ul`, `ol`) → Markdown list syntax with proper nesting
+  - Tables → Delegated to `Html2Markdown.TableConverter`
+  - Links and images → Markdown link syntax
+  - Code blocks → Fenced code blocks with language detection
+
+  ## Performance Optimizations
+
+  - Uses IOList building instead of string concatenation
+  - Processes nodes in a single pass
+  - Preserves whitespace in code blocks while normalizing elsewhere
   """
 
   alias Html2Markdown.{TableConverter, Options}
