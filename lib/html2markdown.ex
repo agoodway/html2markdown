@@ -234,25 +234,76 @@ defmodule Html2Markdown do
   end
 
   defp extract_rows(children) do
-    rows =
+    # Check for thead and tbody
+    thead =
+      Enum.find(children, fn
+        {"thead", _, _} -> true
+        _ -> false
+      end)
+
+    tbody =
       Enum.find(children, fn
         {"tbody", _, _} -> true
         _ -> false
       end)
 
-    case rows do
-      {"tbody", _, rows} -> rows
-      _ -> children
+    case {thead, tbody} do
+      {{"thead", _, thead_rows}, {"tbody", _, tbody_rows}} ->
+        # Combine thead and tbody rows
+        thead_rows ++ tbody_rows
+
+      {nil, {"tbody", _, rows}} ->
+        # Only tbody
+        rows
+
+      {{"thead", _, rows}, nil} ->
+        # Only thead
+        rows
+
+      _ ->
+        # Direct rows (no thead/tbody wrapper)
+        children
     end
   end
 
   defp process_table_rows(rows) do
+    # Get the number of columns from the first row
+    column_count =
+      case List.first(rows) do
+        {"tr", _, cells} when is_list(cells) ->
+          Enum.reduce(cells, 0, fn
+            {_, attrs, _}, acc ->
+              colspan = get_colspan(attrs)
+              if colspan > 1, do: acc + colspan, else: acc + 1
+
+            _, acc ->
+              acc + 1
+          end)
+
+        # default column count
+        _ ->
+          3
+      end
+
+    # Check if first row has only th elements (indicating it's a header row)
+    is_header_row =
+      case List.first(rows) do
+        {"tr", _, cells} when is_list(cells) ->
+          Enum.all?(cells, fn
+            {"th", _, _} -> true
+            _ -> false
+          end)
+
+        _ ->
+          false
+      end
+
     rows
     |> Enum.with_index()
     |> Enum.map_join("\n", fn {row, index} ->
-      row_str = process_table_row(row)
+      row_str = process_table_row(row, column_count)
 
-      if index == 0 do
+      if index == 0 && is_header_row do
         row_str <> newline() <> header_separator(row)
       else
         row_str
@@ -260,24 +311,62 @@ defmodule Html2Markdown do
     end)
   end
 
-  defp process_table_row({"tr", _attrs, cells}) when is_list(cells) and length(cells) > 0 do
-    {_, attrs, _} = List.first(cells)
-    colspan = get_colspan(attrs)
+  # Process table row with column count
 
-    processed_cells =
-      if colspan >= 1 do
-        {_, _, content} = List.first(cells)
-        cell_content = process_children(content)
-        spans = Enum.map_join(1..colspan, " | ", &process_table_cell/1)
-        cell_content <> spans
-      else
-        Enum.map_join(cells, " | ", &process_table_cell/1)
-      end
+  defp process_table_row({"tr", _attrs, cells}, column_count)
+       when is_list(cells) and length(cells) > 0 do
+    case List.first(cells) do
+      nil ->
+        "|  |"
 
-    "| " <> processed_cells <> " |"
+      {_, attrs, _} ->
+        colspan = get_colspan(attrs)
+
+        processed_cells =
+          if colspan > 1 do
+            {_, _, content} = List.first(cells)
+            cell_content = process_children(content)
+            # Repeat the content for each column spanned
+            Enum.map_join(1..colspan, " | ", fn _ -> cell_content end)
+          else
+            # Process all cells normally
+            cell_contents = Enum.map(cells, &process_table_cell/1)
+            # Calculate how many cells were processed
+            cells_count =
+              Enum.reduce(cells, 0, fn
+                {_, cell_attrs, _}, acc ->
+                  cell_colspan = get_colspan(cell_attrs)
+                  if cell_colspan > 1, do: acc + cell_colspan, else: acc + 1
+
+                _, acc ->
+                  acc + 1
+              end)
+
+            # Add empty cells if needed to match column count
+            if cells_count < column_count do
+              empty_cells = List.duplicate("", column_count - cells_count)
+              Enum.join(cell_contents ++ empty_cells, " | ")
+            else
+              Enum.join(cell_contents, " | ")
+            end
+          end
+
+        "| " <> processed_cells <> " |"
+
+      _ ->
+        # Handle non-standard cell format (e.g., plain text)
+        "| " <> Enum.map_join(cells, " | ", &process_cell/1) <> " |"
+    end
   end
 
-  defp process_table_row(_), do: ""
+  defp process_table_row({"tr", _attrs, []}, _column_count), do: "|  |"
+  defp process_table_row({"tr", _attrs, nil}, _column_count), do: "|  |"
+  defp process_table_row(_, _), do: ""
+
+  # Helper function to handle various cell formats
+  defp process_cell({_, _, content}), do: process_children(content)
+  defp process_cell(text) when is_binary(text), do: String.trim(text)
+  defp process_cell(_), do: ""
 
   defp process_table_cell({_, attrs, content}) do
     cell_content = process_children(content)
@@ -312,19 +401,36 @@ defmodule Html2Markdown do
 
   defp header_separator({"thead", _, [{"tr", _, cells}]}), do: header_separator({"tr", [], cells})
 
-  defp header_separator({"tr", _, cells}) do
-    {_, attrs, _} = List.first(cells)
-    colspan = get_colspan(attrs)
+  defp header_separator({"tr", _, cells}) when is_list(cells) do
+    case cells do
+      [] ->
+        "| --- |"
 
-    separator =
-      if colspan >= 1 do
-        Enum.map_join(1..colspan, " | ", fn _ -> "---" end)
-      else
-        Enum.map_join(cells, " | ", fn _ -> "---" end)
-      end
+      _ ->
+        case List.first(cells) do
+          nil ->
+            "| --- |"
 
-    "| " <> separator <> " |"
+          {_, attrs, _} ->
+            colspan = get_colspan(attrs)
+
+            separator =
+              if colspan >= 1 do
+                Enum.map_join(1..colspan, " | ", fn _ -> "---" end)
+              else
+                Enum.map_join(cells, " | ", fn _ -> "---" end)
+              end
+
+            "| " <> separator <> " |"
+
+          _ ->
+            # Handle non-standard cell format
+            "| " <> Enum.map_join(cells, " | ", fn _ -> "---" end) <> " |"
+        end
+    end
   end
+
+  defp header_separator(_), do: "| --- |"
 
   defp process_children(children) do
     children

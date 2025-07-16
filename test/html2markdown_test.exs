@@ -50,4 +50,244 @@ defmodule Html2MarkdownTest do
 
     assert Html2Markdown.convert(fragment) == markdown
   end
+
+  describe "table edge cases" do
+    test "converts table with empty tbody" do
+      html = """
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Stock</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr></tr>
+        </tbody>
+      </table>
+      """
+
+      expected = """
+      | Product | Price | Stock |
+      | --- | --- | --- |
+      |  |
+      """
+
+      assert Html2Markdown.convert(html) |> String.trim() == String.trim(expected)
+    end
+
+    test "converts table with message row spanning columns" do
+      html = """
+      <table>
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="3">No orders found.</td>
+          </tr>
+        </tbody>
+      </table>
+      """
+
+      expected = """
+      | Order ID | Customer | Total |
+      | --- | --- | --- |
+      | No orders found. | No orders found. | No orders found. |
+      """
+
+      assert Html2Markdown.convert(html) |> String.trim() == String.trim(expected)
+    end
+
+    test "converts dashboard with multiple empty tables" do
+      html = """
+      <div>
+        <h2>Sales Dashboard</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Region</th>
+              <th>Q1 Sales</th>
+              <th>Q2 Sales</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>No data available</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <h2>Inventory Status</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Quantity</th>
+              <th>Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr></tr>
+          </tbody>
+        </table>
+      </div>
+      """
+
+      expected_contains = [
+        "## Sales Dashboard",
+        "| Region | Q1 Sales | Q2 Sales |",
+        "| --- | --- | --- |",
+        "| No data available |  |  |",
+        "## Inventory Status",
+        "| Item | Quantity | Location |",
+        "| --- | --- | --- |",
+        "|  |"
+      ]
+
+      result = Html2Markdown.convert(html)
+
+      Enum.each(expected_contains, fn expected_line ->
+        assert String.contains?(result, expected_line)
+      end)
+    end
+
+    test "handles table with mixed empty and populated rows" do
+      html = """
+      <table>
+        <tr>
+          <th>Task</th>
+          <th>Status</th>
+        </tr>
+        <tr>
+          <td>Setup environment</td>
+          <td>Complete</td>
+        </tr>
+        <tr></tr>
+        <tr>
+          <td>Deploy application</td>
+          <td>Pending</td>
+        </tr>
+      </table>
+      """
+
+      expected = """
+      | Task | Status |
+      | --- | --- |
+      | Setup environment | Complete |
+      |  |
+      | Deploy application | Pending |
+      """
+
+      assert Html2Markdown.convert(html) |> String.trim() == String.trim(expected)
+    end
+
+    test "handles malformed table cells" do
+      html = """
+      <table>
+        <tr>
+          <th>Name</th>
+          <th>Value</th>
+        </tr>
+        <tr>
+          Just text without td tags
+        </tr>
+        <tr>
+          <td>Valid row</td>
+          <td>Valid value</td>
+        </tr>
+      </table>
+      """
+
+      result = Html2Markdown.convert(html)
+
+      # Should not crash and should include the valid row
+      assert String.contains?(result, "| Valid row | Valid value |")
+    end
+
+    test "converts form with nested empty tables" do
+      html = """
+      <div>
+        <h3>Search Results</h3>
+        <div>
+          <label>Filter:</label>
+          <select><option>All</option></select>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>No results found.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div>
+          <label>Page:</label>
+          <select>
+            <option>10</option>
+            <option>25</option>
+            <option>50</option>
+          </select>
+        </div>
+      </div>
+      """
+
+      result = Html2Markdown.convert(html)
+
+      assert String.contains?(result, "### Search Results")
+      assert String.contains?(result, "| ID | Name | Actions |")
+      assert String.contains?(result, "| No results found. |  |  |")
+    end
+
+    test "handles table with empty header row" do
+      html = """
+      <table>
+        <thead>
+          <tr></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Data 1</td>
+            <td>Data 2</td>
+          </tr>
+        </tbody>
+      </table>
+      """
+
+      result = Html2Markdown.convert(html)
+
+      # Should handle empty header gracefully
+      assert String.contains?(result, "|  |")
+      assert String.contains?(result, "| --- |")
+      assert String.contains?(result, "| Data 1 | Data 2 |")
+    end
+
+    test "handles table where first row has no cells for header separator" do
+      html = """
+      <table>
+        <tr></tr>
+        <tr>
+          <td>Row with data</td>
+          <td>More data</td>
+        </tr>
+      </table>
+      """
+
+      result = Html2Markdown.convert(html)
+
+      # Should not crash and should process the valid row
+      assert String.contains?(result, "| Row with data | More data |")
+    end
+  end
 end
