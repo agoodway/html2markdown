@@ -51,6 +51,55 @@ defmodule Html2MarkdownTest do
     assert Html2Markdown.convert(fragment) == markdown
   end
 
+  describe "configuration options" do
+    test "custom navigation_classes option" do
+      html = """
+      <div>
+        <nav class="navigation">Navigation content</nav>
+        <div class="custom-header">Custom header content</div>
+        <div class="content">Main content</div>
+        <div class="sidebar">Sidebar content</div>
+      </div>
+      """
+      
+      # Default behavior - removes nav tag and elements with default navigation classes (including "sidebar")
+      result = Html2Markdown.convert(html)
+      assert String.contains?(result, "Custom header content")
+      assert String.contains?(result, "Main content")
+      assert not String.contains?(result, "Navigation content")
+      assert not String.contains?(result, "Sidebar content")  # Default includes "sidebar"
+      
+      # With custom navigation classes
+      result = Html2Markdown.convert(html, %{navigation_classes: ["custom-header"]})
+      assert not String.contains?(result, "Custom header content")
+      assert String.contains?(result, "Main content")
+      assert String.contains?(result, "Sidebar content")  # No longer filtered since we replaced defaults
+    end
+
+    test "custom non_content_tags option" do
+      html = """
+      <div>
+        <p>Regular content</p>
+        <custom-tag>Custom tag content</custom-tag>
+        <script>alert('hello');</script>
+      </div>
+      """
+      
+      # Default behavior - removes script but not custom-tag
+      result = Html2Markdown.convert(html)
+      assert String.contains?(result, "Regular content")
+      assert String.contains?(result, "Custom tag content")
+      assert not String.contains?(result, "alert")
+      
+      # With custom non-content tags
+      result = Html2Markdown.convert(html, %{non_content_tags: ["custom-tag", "script"]})
+      assert String.contains?(result, "Regular content")
+      assert not String.contains?(result, "Custom tag content")
+      assert not String.contains?(result, "alert")
+    end
+
+  end
+
   describe "table edge cases" do
     test "converts table with empty tbody" do
       html = """
@@ -122,7 +171,7 @@ defmodule Html2MarkdownTest do
             </tr>
           </tbody>
         </table>
-        
+
         <h2>Inventory Status</h2>
         <table>
           <thead>
