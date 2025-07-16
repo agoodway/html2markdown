@@ -130,6 +130,66 @@ defmodule Html2Markdown.Converter do
   defp process_node_to_iolist({"figcaption", _, children}, opts),
     do: ["**", process_children_to_iolist(children, opts), "**"]
 
+  # HTML5 elements
+  defp process_node_to_iolist({"details", _, children}, opts),
+    do: process_details_to_iolist(children, opts)
+
+  defp process_node_to_iolist({"summary", _, children}, opts),
+    do: ["**", process_children_to_iolist(children, opts), "**"]
+
+  defp process_node_to_iolist({"mark", _, children}, opts) do
+    # Use == for marked/highlighted text if GFM flavor, otherwise bold
+    if opts[:markdown_flavor] == :gfm do
+      ["==", process_children_to_iolist(children, opts), "=="]
+    else
+      ["**", process_children_to_iolist(children, opts), "**"]
+    end
+  end
+
+  defp process_node_to_iolist({"abbr", attrs, children}, opts) do
+    case List.keyfind(attrs, "title", 0) do
+      {"title", title} ->
+        ["", process_children_to_iolist(children, opts), " (", title, ")"]
+      _ ->
+        process_children_to_iolist(children, opts)
+    end
+  end
+
+  defp process_node_to_iolist({"cite", _, children}, opts),
+    do: ["*", process_children_to_iolist(children, opts), "*"]
+
+  defp process_node_to_iolist({"q", attrs, children}, opts) do
+    # Handle cite attribute if present
+    quote_content = ["\"", process_children_to_iolist(children, opts), "\""]
+    case List.keyfind(attrs, "cite", 0) do
+      {"cite", url} ->
+        [quote_content, " (", url, ")"]
+      _ ->
+        quote_content
+    end
+  end
+
+  defp process_node_to_iolist({"time", attrs, children}, opts) do
+    case List.keyfind(attrs, "datetime", 0) do
+      {"datetime", datetime} ->
+        # Include datetime as title attribute in markdown
+        ["", process_children_to_iolist(children, opts), " <time datetime=\"", datetime, "\">"]
+      _ ->
+        process_children_to_iolist(children, opts)
+    end
+  end
+
+  defp process_node_to_iolist({"video", attrs, _}, _opts) do
+    case List.keyfind(attrs, "src", 0) do
+      {"src", src} ->
+        # Convert video to a link
+        ["[Video](", src, ")"]
+      _ ->
+        # Check for source children
+        "[Video]"
+    end
+  end
+
   defp process_node_to_iolist({"br", _, _}, _opts), do: "\n\n"
   defp process_node_to_iolist({"hr", _, _}, _opts), do: "\n\n---\n\n"
 
@@ -139,15 +199,20 @@ defmodule Html2Markdown.Converter do
   defp process_node_to_iolist({"article", _, children}, opts),
     do: ["\n", process_children_to_iolist(children, opts), "\n"]
 
-  defp process_node_to_iolist({"picture", _, children}, _opts) do
-    case Enum.find(children, fn {tag, _, _} -> tag == "img" end) do
+  defp process_node_to_iolist({"picture", _, children}, opts) do
+    case Enum.find(children, fn 
+      {tag, _, _} when is_binary(tag) -> tag == "img"
+      _ -> false
+    end) do
       {"img", attrs, _} ->
         case {List.keyfind(attrs, "src", 0), List.keyfind(attrs, "alt", 0)} do
           {{"src", src}, {"alt", alt}} -> ["![", alt, "](", src, ")"]
           {{"src", src}, _} -> ["![](", src, ")"]
           _ -> []
         end
-      _ -> []
+      _ -> 
+        # No img found, process children normally
+        process_children_to_iolist(children, opts)
     end
   end
 
@@ -322,6 +387,25 @@ defmodule Html2Markdown.Converter do
       |> String.trim()
     end)
     |> Enum.join("\n")
+  end
+
+  # Process details/summary elements
+  defp process_details_to_iolist(children, opts) do
+    {summary, content} = Enum.split_with(children, fn 
+      {"summary", _, _} -> true
+      _ -> false
+    end)
+    
+    summary_iolist = case summary do
+      [{"summary", _, summary_children} | _] ->
+        ["**", process_children_to_iolist(summary_children, opts), "**"]
+      _ ->
+        ["**Details**"]
+    end
+    
+    content_iolist = process_children_to_iolist(content, opts)
+    
+    ["\n", summary_iolist, "\n", content_iolist, "\n"]
   end
 
   # Compatibility wrapper functions

@@ -27,8 +27,7 @@ defmodule Html2Markdown.Options do
       "svg",
       "template",
       "textarea",
-      "track",
-      "video"
+      "track"
     ],
     markdown_flavor: :basic,
     normalize_whitespace: true

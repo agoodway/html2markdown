@@ -19,7 +19,7 @@ defmodule Html2Markdown.OptionsTest do
       
       expected_tags = ~w[aside audio base button datalist embed form iframe input 
                         keygen nav noscript object output script select source 
-                        style svg template textarea track video]
+                        style svg template textarea track]
       
       Enum.each(expected_tags, fn tag ->
         assert tag in defaults.non_content_tags, "Expected #{tag} to be in non_content_tags"
