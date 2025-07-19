@@ -26,7 +26,7 @@ defmodule Html2MarkdownTest do
     """
 
     expected =
-      "\nThe **bold** flavors of aged cheddar, the *subtle* notes of brie, and the ~~stinky~~ *aromatic* presence of blue cheese make for an `unforgettable` culinary experience.\n"
+      "The **bold** flavors of aged cheddar, the *subtle* notes of brie, and the ~~stinky~~ *aromatic* presence of blue cheese make for an `unforgettable` culinary experience."
 
     assert Html2Markdown.convert(fragment) == expected
   end
@@ -59,8 +59,8 @@ defmodule Html2MarkdownTest do
       <p>This	has	tabs	between	words.</p>
       """
 
-      # Paragraphs add newlines and are joined with \n\n
-      expected = "\nThis has multiple spaces between words.\n\n\n\nThis has tabs between words.\n"
+      # Paragraphs are joined with \n \n (space between newlines)
+      expected = "This has multiple spaces between words.\n \nThis has tabs between words."
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -71,8 +71,8 @@ defmodule Html2MarkdownTest do
       <h1>   Header with spaces   </h1>
       """
 
-      # Each element adds newlines and they're joined with \n\n
-      expected = "\nLeading and trailing spaces\n\n\n\n# Header with spaces\n"
+      # Paragraph and header are joined with \n\n, header adds its own \n prefix/suffix
+      expected = "Leading and trailing spaces\n\n# Header with spaces\n"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -95,8 +95,8 @@ defmodule Html2MarkdownTest do
       <p>Use <code>  spaced  code  </code> for examples.</p>
       """
 
-      # Paragraph adds newlines
-      expected = "\nUse `  spaced  code  ` for examples.\n"
+      # Paragraph without extra newlines
+      expected = "Use `  spaced  code  ` for examples."
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -504,9 +504,9 @@ defmodule Html2MarkdownTest do
       result = Html2Markdown.convert(html)
 
       # Floki converts &nbsp; to Unicode non-breaking space (U+00A0)
-      # Paragraphs add newlines and are joined with \n\n
+      # Paragraphs are joined with \n \n (space between newlines)
       expected =
-        "\nThe & symbol, <tag> brackets, and \"quotes\" are decoded.\n\n\n\nNon-breaking\u00A0space and apostrophe's work too.\n"
+        "The & symbol, <tag> brackets, and \"quotes\" are decoded.\n \nNon-breaking\u00A0space and apostrophe's work too."
 
       assert result == expected
     end
@@ -528,7 +528,7 @@ defmodule Html2MarkdownTest do
       <p>Copyright &#169; 2024 &#x2022; All rights reserved</p>
       """
 
-      expected = "\nCopyright © 2024 • All rights reserved\n"
+      expected = "Copyright © 2024 • All rights reserved"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -538,7 +538,7 @@ defmodule Html2MarkdownTest do
       <p>Use <code>&lt;div&gt;</code> for layout and <code>&amp;&amp;</code> for logical AND.</p>
       """
 
-      expected = "\nUse `<div>` for layout and `&&` for logical AND.\n"
+      expected = "Use `<div>` for layout and `&&` for logical AND."
 
       assert Html2Markdown.convert(html) == expected
     end

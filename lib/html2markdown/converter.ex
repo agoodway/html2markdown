@@ -35,23 +35,37 @@ defmodule Html2Markdown.Converter do
   # Optimized: Build iolist instead of string concatenation
   defp build_markdown_iolist(nodes, opts) do
     nodes
-    |> Enum.reduce([], fn node, acc ->
+    |> Enum.reduce({[], nil}, fn node, {acc, prev_node_type} ->
       case process_node_to_iolist(node, opts) do
         [] ->
-          acc
+          {acc, prev_node_type}
 
         "" ->
-          acc
+          {acc, prev_node_type}
 
         iodata ->
-          if acc == [] do
+          current_node_type = get_node_type(node)
+          
+          new_acc = if acc == [] do
             [iodata]
           else
-            [acc, "\n\n", iodata]
+            separator = get_separator(prev_node_type, current_node_type)
+            [acc, separator, iodata]
           end
+          
+          {new_acc, current_node_type}
       end
     end)
+    |> elem(0)  # Extract just the accumulated iolist
   end
+
+  # Get the type of node for spacing decisions
+  defp get_node_type({tag, _, _}) when is_binary(tag), do: tag
+  defp get_node_type(_), do: :text
+
+  # Determine the separator between different node types
+  defp get_separator("p", "p"), do: "\n \n"
+  defp get_separator(_, _), do: "\n\n"
 
   # Process nodes to iolist for better performance
   defp process_node_to_iolist({"h1", _, children}, opts),
@@ -73,7 +87,7 @@ defmodule Html2Markdown.Converter do
     do: ["\n", "###### ", process_children_to_iolist(children, opts), "\n"]
 
   defp process_node_to_iolist({"p", _, children}, opts),
-    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+    do: process_children_to_iolist(children, opts)
 
   defp process_node_to_iolist({"ul", _, children}, opts),
     do: process_ul_list_to_iolist(children, opts)
