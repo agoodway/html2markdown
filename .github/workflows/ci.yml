@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 env:
   MIX_ENV: test
 
@@ -15,13 +18,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        elixir: ['1.15.0', '1.16.0', '1.17.0']
-        otp: ['25.0', '26.0', '27.0']
-        exclude:
-          # Exclude incompatible OTP/Elixir combinations
+        include:
+          # Elixir 1.15 with compatible OTP versions
           - elixir: '1.15.0'
-            otp: '27.0'
+            otp: '25.0'
+          - elixir: '1.15.0'
+            otp: '26.0'
+          # Elixir 1.16 with compatible OTP versions  
           - elixir: '1.16.0'
+            otp: '25.0'
+          - elixir: '1.16.0'
+            otp: '26.0'
+          # Elixir 1.17 with compatible OTP versions
+          - elixir: '1.17.0'
+            otp: '25.0'
+          - elixir: '1.17.0'
+            otp: '26.0'
+          - elixir: '1.17.0'
             otp: '27.0'
 
     steps:
