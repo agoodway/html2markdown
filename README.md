@@ -3,6 +3,7 @@
 [![Hex.pm](https://img.shields.io/hexpm/v/html2markdown.svg)](https://hex.pm/packages/html2markdown)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-purple.svg)](https://hexdocs.pm/html2markdown)
 [![License](https://img.shields.io/hexpm/l/html2markdown.svg)](https://github.com/cpursley/html2markdown/blob/main/LICENSE)
+[![CI](https://github.com/agoodway/html2markdown/workflows/CI/badge.svg)](https://github.com/agoodway/html2markdown/actions/workflows/ci.yml)
 
 Convert HTML to clean, readable Markdown. Designed for content extraction, this library handles common HTML patterns while filtering out non-content elements like navigation and and scripts.
 
@@ -104,6 +105,37 @@ email_html
 ## Documentation
 
 Full documentation is available at [https://hexdocs.pm/html2markdown](https://hexdocs.pm/html2markdown).
+
+## Development
+
+This project includes comprehensive testing and quality assurance tools:
+
+### Running Tests
+```bash
+# Run all tests
+mix test
+
+# Run tests with coverage
+mix coveralls.html
+```
+
+### Code Quality
+```bash
+# Run all quality checks (formatting, security, linting)
+mix quality
+
+# Individual checks
+mix format --check-formatted  # Code formatting
+mix credo --only warning       # Code linting
+mix sobelow --config          # Security analysis
+```
+
+### CI/CD
+This project uses GitHub Actions for continuous integration with:
+- Multi-version testing (Elixir 1.15-1.17, OTP 25-27)
+- Code quality enforcement
+- Security scanning
+- Test coverage reporting
 
 ## License
 
