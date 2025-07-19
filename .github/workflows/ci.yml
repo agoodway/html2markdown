@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  MIX_ENV: test
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        elixir: ['1.15.0', '1.16.0', '1.17.0']
+        otp: ['25.0', '26.0', '27.0']
+        exclude:
+          # Exclude incompatible OTP/Elixir combinations
+          - elixir: '1.15.0'
+            otp: '27.0'
+          - elixir: '1.16.0'
+            otp: '27.0'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: ${{ matrix.elixir }}
+        otp-version: ${{ matrix.otp }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          deps
+          _build
+        key: ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-mix-${{ matrix.elixir }}-${{ matrix.otp }}-
+          ${{ runner.os }}-mix-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Check formatting
+      run: mix format --check-formatted
+
+    - name: Compile
+      run: mix compile --warnings-as-errors
+
+    - name: Run security checks
+      run: mix sobelow --config
+
+    - name: Run linting
+      run: mix credo --only warning
+
+    - name: Run tests
+      run: mix test
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.17.0'
+        otp-version: '27.0'
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          deps
+          _build
+        key: ${{ runner.os }}-mix-coverage-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-mix-coverage-
+          ${{ runner.os }}-mix-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Run tests with coverage
+      run: mix coveralls.html
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: cover/
+        retention-days: 30
+
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.17.0'
+        otp-version: '27.0'
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          deps
+          _build
+        key: ${{ runner.os }}-mix-quality-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-mix-quality-
+          ${{ runner.os }}-mix-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Run quality checks
+      run: mix quality
