@@ -1,0 +1,47 @@
+name: Quick Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run weekly on Sundays at 6 AM UTC
+    - cron: '0 6 * * 0'
+
+permissions:
+  contents: read
+
+env:
+  MIX_ENV: test
+
+jobs:
+  quick-test:
+    name: Quick Test on Latest Versions
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: '1.17.0'
+        otp-version: '27.0'
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          deps
+          _build
+        key: ${{ runner.os }}-mix-quick-${{ hashFiles('**/mix.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-mix-quick-
+          ${{ runner.os }}-mix-
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Compile
+      run: mix compile
+
+    - name: Run tests
+      run: mix test --trace
