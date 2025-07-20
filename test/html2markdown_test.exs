@@ -12,9 +12,9 @@ defmodule Html2MarkdownTest do
       assert Html2Markdown.convert(html) == markdown
     end
 
-    test "convert wikipedia HTML document to Markdown" do
-      {:ok, html} = File.read(@fixture_path <> "wikipedia.html")
-      {:ok, markdown} = File.read(@fixture_path <> "wikipedia.md")
+    test "convert elixir wikipedia HTML document to Markdown" do
+      {:ok, html} = File.read(@fixture_path <> "elixir_wikipedia.html")
+      {:ok, markdown} = File.read(@fixture_path <> "elixir_wikipedia.md")
 
       assert Html2Markdown.convert(html) == markdown
     end

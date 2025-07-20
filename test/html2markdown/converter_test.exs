@@ -296,12 +296,12 @@ defmodule Html2Markdown.ConverterTest do
       opts = Options.defaults()
 
       section = {"section", [], [{"h2", [], ["LiveView Basics"]}]}
-      # Section processes children which returns the trimmed content
-      assert Converter.process_node(section, opts) == "\n## LiveView Basics\n"
+      # Section uses block context which produces clean content without extra newlines
+      assert Converter.process_node(section, opts) == "## LiveView Basics"
 
       article = {"article", [], [{"p", [], ["Content here"]}]}
-      # Article processes children which returns the trimmed content
-      assert Converter.process_node(article, opts) == "\nContent here\n"
+      # Article uses block context which produces clean content without extra newlines
+      assert Converter.process_node(article, opts) == "Content here"
     end
 
     test "converts figcaption" do
