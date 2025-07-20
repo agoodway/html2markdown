@@ -30,6 +30,8 @@ defmodule Html2Markdown.Converter do
     document
     |> build_markdown_iolist(opts)
     |> IO.iodata_to_binary()
+    |> String.replace("{{BR}}{{/BR}}", "  \n")
+    |> String.trim()
   end
 
   # Optimized: Build iolist instead of string concatenation
@@ -55,25 +57,25 @@ defmodule Html2Markdown.Converter do
 
   # Process nodes to iolist for better performance
   defp process_node_to_iolist({"h1", _, children}, opts),
-    do: ["\n", "# ", process_children_to_iolist(children, opts), "\n"]
+    do: ["# ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h2", _, children}, opts),
-    do: ["\n", "## ", process_children_to_iolist(children, opts), "\n"]
+    do: ["## ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h3", _, children}, opts),
-    do: ["\n", "### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h4", _, children}, opts),
-    do: ["\n", "#### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["#### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h5", _, children}, opts),
-    do: ["\n", "##### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["##### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h6", _, children}, opts),
-    do: ["\n", "###### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["###### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"p", _, children}, opts),
-    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+    do: process_children_to_iolist(children, opts)
 
   defp process_node_to_iolist({"ul", _, children}, opts),
     do: process_ul_list_to_iolist(children, opts)
@@ -220,7 +222,7 @@ defmodule Html2Markdown.Converter do
     end
   end
 
-  defp process_node_to_iolist({"br", _, _}, _opts), do: "\n\n"
+  defp process_node_to_iolist({"br", _, _}, _opts), do: "{{BR}}{{/BR}}"
   defp process_node_to_iolist({"hr", _, _}, _opts), do: "\n\n---\n\n"
 
   defp process_node_to_iolist({"section", _, children}, opts),
@@ -283,14 +285,14 @@ defmodule Html2Markdown.Converter do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
     content = process_children_to_iolist(children, code_opts)
-    ["\n```\n", content, "\n```\n"]
+    ["```\n", content, "\n```"]
   end
 
   defp process_code_block_to_iolist(classes, children, opts) do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
     language = detect_language(classes)
-    ["\n```", language, "\n", process_children_to_iolist(children, code_opts), "\n```\n"]
+    ["```", language, "\n", process_children_to_iolist(children, code_opts), "\n```"]
   end
 
   defp detect_language(classes) do
@@ -375,24 +377,18 @@ defmodule Html2Markdown.Converter do
   end
 
   defp process_ul_list_to_iolist(children, opts) when is_list(children) do
-    items =
-      children
-      |> Enum.map(&process_list_item_to_iolist(&1, opts))
-      |> Enum.intersperse("\n")
-
-    ["\n", items, "\n"]
+    children
+    |> Enum.map(&process_list_item_to_iolist(&1, opts))
+    |> Enum.intersperse("\n")
   end
 
   defp process_ol_list_to_iolist(children, opts) when is_list(children) do
-    items =
-      children
-      |> Enum.with_index(1)
-      |> Enum.map(fn {child, index} ->
-        process_ordered_list_item_to_iolist(child, index, opts)
-      end)
-      |> Enum.intersperse("\n")
-
-    ["\n", items, "\n"]
+    children
+    |> Enum.with_index(1)
+    |> Enum.map(fn {child, index} ->
+      process_ordered_list_item_to_iolist(child, index, opts)
+    end)
+    |> Enum.intersperse("\n")
   end
 
   defp process_list_item_to_iolist({"li", _, children}, opts),
@@ -411,7 +407,7 @@ defmodule Html2Markdown.Converter do
     iolist =
       children
       |> Enum.map(&process_node_to_iolist(&1, opts))
-      |> Enum.intersperse(" ")
+      |> join_with_smart_spacing()
 
     # Only trim if we're normalizing whitespace
     if opts.normalize_whitespace do
@@ -419,6 +415,44 @@ defmodule Html2Markdown.Converter do
     else
       iolist
     end
+  end
+
+  # Join nodes with spaces, but avoid spaces before punctuation
+  defp join_with_smart_spacing([]), do: []
+
+  defp join_with_smart_spacing([first | rest]) do
+    Enum.reduce(rest, [first], fn node, acc ->
+      binary_node = IO.iodata_to_binary(node)
+      binary_acc = IO.iodata_to_binary(acc)
+
+      cond do
+        # Don't add space before punctuation
+        match?(<<?., _::binary>>, binary_node) or
+          match?(<<?:, _::binary>>, binary_node) or
+          match?(<<?;, _::binary>>, binary_node) or
+          match?(<<?!, _::binary>>, binary_node) or
+          match?(<<??, _::binary>>, binary_node) or
+          match?(<<?), _::binary>>, binary_node) or
+            match?(<<?,, _::binary>>, binary_node) ->
+          [acc, node]
+
+        # Don't add space around BR placeholder
+        String.ends_with?(binary_acc, "{{BR}}{{/BR}}") ->
+          [acc, node]
+
+        # Don't add space before BR placeholder
+        String.starts_with?(binary_node, "{{BR}}{{/BR}}") ->
+          [acc, node]
+
+        # Don't add space for empty nodes
+        binary_node == "" ->
+          acc
+
+        # Add space in other cases
+        true ->
+          [acc, " ", node]
+      end
+    end)
   end
 
   defp normalize_whitespace(text) do
