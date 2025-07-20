@@ -38,7 +38,40 @@ defmodule Html2Markdown.Parser do
   end
 
   defp prep_document(content) do
-    if is_html_document?(content), do: content, else: wrap_fragment(content)
+    content = if is_html_document?(content), do: content, else: wrap_fragment(content)
+
+    # Preserve whitespace in code blocks by replacing whitespace spans
+    # with placeholders that won't be stripped by Floki
+    preserve_code_whitespace(content)
+  end
+
+  # Replace whitespace-only spans in code blocks with placeholders
+  defp preserve_code_whitespace(content) do
+    # Match <pre> or <code> blocks and preserve whitespace within them
+    content
+    |> String.replace(~r/<(pre|code)([^>]*)>(.*?)<\/\1>/s, fn full_match ->
+      case Regex.run(~r/<(pre|code)([^>]*)>(.*?)<\/\1>/s, full_match) do
+        [_, tag, attrs, inner] ->
+          preserved_inner =
+            inner
+            |> String.replace(~r/<span([^>]*class="w"[^>]*)>([^<]*)<\/span>/, fn span_match ->
+              case Regex.run(~r/<span([^>]*class="w"[^>]*)>([^<]*)<\/span>/, span_match) do
+                [_, span_attrs, ws_content] ->
+                  # Encode whitespace content to preserve it
+                  encoded = Base.encode64(ws_content)
+                  ~s(<span#{span_attrs} data-ws="#{encoded}"></span>)
+
+                _ ->
+                  span_match
+              end
+            end)
+
+          "<#{tag}#{attrs}>#{preserved_inner}</#{tag}>"
+
+        _ ->
+          full_match
+      end
+    end)
   end
 
   defp is_html_document?(content) do

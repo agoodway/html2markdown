@@ -23,13 +23,15 @@ defmodule Html2Markdown.Converter do
   - Preserves whitespace in code blocks while normalizing elsewhere
   """
 
-  alias Html2Markdown.{TableConverter, Options}
+  alias Html2Markdown.{TableConverter, Options, ElementTypes}
 
   @spec convert_to_markdown(list(Floki.html_node()), Options.t()) :: String.t()
   def convert_to_markdown(document, opts) do
     document
     |> build_markdown_iolist(opts)
     |> IO.iodata_to_binary()
+    |> String.replace("{{BR}}{{/BR}}", "  \n")
+    |> String.trim()
   end
 
   # Optimized: Build iolist instead of string concatenation
@@ -55,25 +57,25 @@ defmodule Html2Markdown.Converter do
 
   # Process nodes to iolist for better performance
   defp process_node_to_iolist({"h1", _, children}, opts),
-    do: ["\n", "# ", process_children_to_iolist(children, opts), "\n"]
+    do: ["# ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h2", _, children}, opts),
-    do: ["\n", "## ", process_children_to_iolist(children, opts), "\n"]
+    do: ["## ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h3", _, children}, opts),
-    do: ["\n", "### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h4", _, children}, opts),
-    do: ["\n", "#### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["#### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h5", _, children}, opts),
-    do: ["\n", "##### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["##### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"h6", _, children}, opts),
-    do: ["\n", "###### ", process_children_to_iolist(children, opts), "\n"]
+    do: ["###### ", process_children_to_iolist(children, opts)]
 
   defp process_node_to_iolist({"p", _, children}, opts),
-    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+    do: process_children_to_iolist(children, opts)
 
   defp process_node_to_iolist({"ul", _, children}, opts),
     do: process_ul_list_to_iolist(children, opts)
@@ -220,14 +222,14 @@ defmodule Html2Markdown.Converter do
     end
   end
 
-  defp process_node_to_iolist({"br", _, _}, _opts), do: "\n\n"
+  defp process_node_to_iolist({"br", _, _}, _opts), do: "{{BR}}{{/BR}}"
   defp process_node_to_iolist({"hr", _, _}, _opts), do: "\n\n---\n\n"
 
   defp process_node_to_iolist({"section", _, children}, opts),
-    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+    do: process_children_with_context(children, opts, :block)
 
   defp process_node_to_iolist({"article", _, children}, opts),
-    do: ["\n", process_children_to_iolist(children, opts), "\n"]
+    do: process_children_with_context(children, opts, :block)
 
   defp process_node_to_iolist({"picture", _, children}, opts) do
     case Enum.find(children, fn
@@ -248,7 +250,20 @@ defmodule Html2Markdown.Converter do
   end
 
   defp process_node_to_iolist({"div", _, children}, opts),
-    do: [process_children_to_iolist(children, opts), "\n"]
+    do: process_children_with_context(children, opts, :block)
+
+  # Handle spans with preserved whitespace
+  defp process_node_to_iolist({"span", attrs, children}, opts) do
+    case List.keyfind(attrs, "data-ws", 0) do
+      {"data-ws", encoded} ->
+        # Decode preserved whitespace
+        Base.decode64!(encoded)
+
+      _ ->
+        # Normal span processing
+        process_children_to_iolist(children, opts)
+    end
+  end
 
   defp process_node_to_iolist({_, _, children}, opts),
     do: process_children_to_iolist(children, opts)
@@ -259,6 +274,7 @@ defmodule Html2Markdown.Converter do
       |> String.trim()
       |> normalize_whitespace()
     else
+      # When not normalizing whitespace (e.g., in code blocks), preserve text exactly as-is
       text
     end
   end
@@ -283,20 +299,29 @@ defmodule Html2Markdown.Converter do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
     content = process_children_to_iolist(children, code_opts)
-    ["\n```\n", content, "\n```\n"]
+    ["```\n", content, "\n```"]
   end
 
   defp process_code_block_to_iolist(classes, children, opts) do
     # Disable whitespace normalization for code blocks
     code_opts = Map.put(opts, :normalize_whitespace, false)
     language = detect_language(classes)
-    ["\n```", language, "\n", process_children_to_iolist(children, code_opts), "\n```\n"]
+    ["```", language, "\n", process_children_to_iolist(children, code_opts), "\n```"]
   end
 
   defp detect_language(classes) do
-    case Regex.run(~r/language-(\w+)/, classes) do
-      [_, lang] -> lang
-      _ -> ""
+    cond do
+      # First check for standard language- prefix
+      match = Regex.run(~r/language-(\w+)/, classes) ->
+        elem(List.to_tuple(match), 1)
+
+      # Check for makeup syntax highlighting classes
+      match = Regex.run(~r/makeup (\w+)/, classes) ->
+        elem(List.to_tuple(match), 1)
+
+      # Default to empty string
+      true ->
+        ""
     end
   end
 
@@ -375,24 +400,18 @@ defmodule Html2Markdown.Converter do
   end
 
   defp process_ul_list_to_iolist(children, opts) when is_list(children) do
-    items =
-      children
-      |> Enum.map(&process_list_item_to_iolist(&1, opts))
-      |> Enum.intersperse("\n")
-
-    ["\n", items, "\n"]
+    children
+    |> Enum.map(&process_list_item_to_iolist(&1, opts))
+    |> Enum.intersperse("\n")
   end
 
   defp process_ol_list_to_iolist(children, opts) when is_list(children) do
-    items =
-      children
-      |> Enum.with_index(1)
-      |> Enum.map(fn {child, index} ->
-        process_ordered_list_item_to_iolist(child, index, opts)
-      end)
-      |> Enum.intersperse("\n")
-
-    ["\n", items, "\n"]
+    children
+    |> Enum.with_index(1)
+    |> Enum.map(fn {child, index} ->
+      process_ordered_list_item_to_iolist(child, index, opts)
+    end)
+    |> Enum.intersperse("\n")
   end
 
   defp process_list_item_to_iolist({"li", _, children}, opts),
@@ -407,18 +426,119 @@ defmodule Html2Markdown.Converter do
   defp process_ordered_list_item_to_iolist(other, _index, opts),
     do: process_node_to_iolist(other, opts)
 
+  # Context-aware processing for better spacing control  
+  defp process_children_with_context(children, opts, context) do
+    final_context = determine_context(children, context)
+
+    case final_context do
+      :block -> process_block_children(children, opts)
+      :inline -> process_inline_children(children, opts)
+    end
+  end
+
+  # Determine processing context based on children content
+  defp determine_context(children, :auto) do
+    has_block_elements =
+      Enum.any?(children, fn
+        {tag, _, _} when is_binary(tag) -> ElementTypes.block_element?(tag)
+        _ -> false
+      end)
+
+    if has_block_elements, do: :block, else: :inline
+  end
+
+  defp determine_context(_children, context), do: context
+
+  # Process block children with proper spacing between block elements
+  defp process_block_children(children, opts) do
+    children
+    |> Enum.filter(&ElementTypes.content_node?/1)
+    |> Enum.map(&process_node_to_iolist(&1, opts))
+    |> Enum.reject(&ElementTypes.empty_content?/1)
+    |> join_with_block_spacing()
+  end
+
+  # Process inline children with smart spacing (existing logic)
+  defp process_inline_children(children, opts) do
+    iolist =
+      children
+      |> Enum.map(&process_node_to_iolist(&1, opts))
+
+    # Only apply smart spacing and trim when normalizing whitespace
+    if opts.normalize_whitespace do
+      iolist
+      |> join_with_smart_spacing()
+      |> IO.iodata_to_binary()
+      |> String.trim()
+    else
+      # When not normalizing (e.g., in code blocks), just return the iolist as-is
+      iolist
+    end
+  end
+
+  # Join block elements with proper spacing (double newlines)
+  defp join_with_block_spacing([]), do: []
+
+  defp join_with_block_spacing([first | rest]) do
+    Enum.reduce(rest, [first], fn item, acc ->
+      [acc, "\n\n", item]
+    end)
+  end
+
+  # Legacy function maintained for backward compatibility
   defp process_children_to_iolist(children, opts) do
     iolist =
       children
       |> Enum.map(&process_node_to_iolist(&1, opts))
-      |> Enum.intersperse(" ")
 
-    # Only trim if we're normalizing whitespace
+    # Only apply smart spacing and trim when normalizing whitespace
     if opts.normalize_whitespace do
-      iolist |> IO.iodata_to_binary() |> String.trim()
+      iolist
+      |> join_with_smart_spacing()
+      |> IO.iodata_to_binary()
+      |> String.trim()
     else
+      # When not normalizing (e.g., in code blocks), just return the iolist as-is
       iolist
     end
+  end
+
+  # Join nodes with spaces, but avoid spaces before punctuation
+  defp join_with_smart_spacing([]), do: []
+
+  defp join_with_smart_spacing([first | rest]) do
+    Enum.reduce(rest, [first], fn node, acc ->
+      binary_node = IO.iodata_to_binary(node)
+      binary_acc = IO.iodata_to_binary(acc)
+
+      cond do
+        # Don't add space before punctuation
+        match?(<<?., _::binary>>, binary_node) or
+          match?(<<?:, _::binary>>, binary_node) or
+          match?(<<?;, _::binary>>, binary_node) or
+          match?(<<?!, _::binary>>, binary_node) or
+          match?(<<??, _::binary>>, binary_node) or
+          match?(<<?), _::binary>>, binary_node) or
+            match?(<<?,, _::binary>>, binary_node) ->
+          [acc, node]
+
+        # Don't add space around BR placeholder
+        String.ends_with?(binary_acc, "{{BR}}{{/BR}}") ->
+          [acc, node]
+
+        # Don't add space before BR placeholder
+        String.starts_with?(binary_node, "{{BR}}{{/BR}}") ->
+          [acc, node]
+
+        # Don't add space for empty nodes
+        binary_node == "" ->
+          acc
+
+        # Add space in other cases
+        true ->
+          [acc, " ", node]
+      end
+    end)
   end
 
   defp normalize_whitespace(text) do

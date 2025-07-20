@@ -10,7 +10,7 @@ defmodule Html2Markdown do
   ## Basic Usage
 
       iex> Html2Markdown.convert("<h1>Hello</h1><p>World</p>")
-      "\\n# Hello\\n\\n\\n\\nWorld\\n"
+      "# Hello\\n\\nWorld"
 
   ## Configuration
 
@@ -154,7 +154,7 @@ defmodule Html2Markdown do
   ## Examples
 
       iex> Html2Markdown.convert("<p>Hello</p>", %{navigation_classes: ["custom-nav"]})
-      "\\nHello\\n"
+      "Hello"
 
   """
   @spec convert(html_content(), conversion_options()) :: markdown_content()

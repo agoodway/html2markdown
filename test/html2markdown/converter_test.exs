@@ -8,34 +8,34 @@ defmodule Html2Markdown.ConverterTest do
       opts = Options.defaults()
 
       assert Converter.process_node({"h1", [], ["Getting Started with Phoenix"]}, opts) ==
-               "\n# Getting Started with Phoenix\n"
+               "# Getting Started with Phoenix"
 
       assert Converter.process_node({"h2", [], ["Installing Dependencies"]}, opts) ==
-               "\n## Installing Dependencies\n"
+               "## Installing Dependencies"
 
       assert Converter.process_node({"h3", [], ["Mix and Hex"]}, opts) ==
-               "\n### Mix and Hex\n"
+               "### Mix and Hex"
 
       assert Converter.process_node({"h4", [], ["Creating a New Project"]}, opts) ==
-               "\n#### Creating a New Project\n"
+               "#### Creating a New Project"
 
       assert Converter.process_node({"h5", [], ["Project Structure"]}, opts) ==
-               "\n##### Project Structure\n"
+               "##### Project Structure"
 
       assert Converter.process_node({"h6", [], ["Configuration Files"]}, opts) ==
-               "\n###### Configuration Files\n"
+               "###### Configuration Files"
     end
 
     test "handles nested elements in headings" do
       opts = Options.defaults()
 
       heading = {"h2", [], ["Understanding ", {"code", [], ["GenServer"]}, " Behavior"]}
-      assert Converter.process_node(heading, opts) == "\n## Understanding `GenServer` Behavior\n"
+      assert Converter.process_node(heading, opts) == "## Understanding `GenServer` Behavior"
 
       heading_with_link = {"h3", [], [{"a", [{"href", "/docs"}], ["LiveView"]}, " Components"]}
 
       assert Converter.process_node(heading_with_link, opts) ==
-               "\n### [LiveView](/docs) Components\n"
+               "### [LiveView](/docs) Components"
     end
   end
 
@@ -46,7 +46,7 @@ defmodule Html2Markdown.ConverterTest do
       para = {"p", [], ["Phoenix makes it easy to build web applications."]}
 
       assert Converter.process_node(para, opts) ==
-               "\nPhoenix makes it easy to build web applications.\n"
+               "Phoenix makes it easy to build web applications."
     end
 
     test "converts text formatting tags" do
@@ -76,7 +76,7 @@ defmodule Html2Markdown.ConverterTest do
          ]}
 
       result = Converter.process_node(nested, opts)
-      assert result == "\nIn Elixir, **pattern matching** is *extremely* powerful.\n"
+      assert result == "In Elixir, **pattern matching** is *extremely* powerful."
     end
   end
 
@@ -99,7 +99,7 @@ defmodule Html2Markdown.ConverterTest do
       opts = Options.defaults()
 
       pre_code = {"pre", [], [{"code", [], ["defmodule MyApp do\n  use Application\nend"]}]}
-      expected = "\n```\ndefmodule MyApp do\n  use Application\nend\n```\n"
+      expected = "```\ndefmodule MyApp do\n  use Application\nend\n```"
 
       assert Converter.process_node(pre_code, opts) == expected
     end
@@ -117,7 +117,7 @@ defmodule Html2Markdown.ConverterTest do
          ]}
 
       expected =
-        "\n```elixir\ndefmodule MyApp.Repo do\n  use Ecto.Repo,\n    otp_app: :my_app\nend\n```\n"
+        "```elixir\ndefmodule MyApp.Repo do\n  use Ecto.Repo,\n    otp_app: :my_app\nend\n```"
 
       assert Converter.process_node(elixir_code, opts) == expected
     end
@@ -126,7 +126,7 @@ defmodule Html2Markdown.ConverterTest do
       opts = Options.defaults()
 
       pre = {"pre", [], ["$ mix phx.new my_app\n$ cd my_app\n$ mix deps.get"]}
-      expected = "\n```\n$ mix phx.new my_app\n$ cd my_app\n$ mix deps.get\n```\n"
+      expected = "```\n$ mix phx.new my_app\n$ cd my_app\n$ mix deps.get\n```"
 
       assert Converter.process_node(pre, opts) == expected
     end
@@ -144,7 +144,7 @@ defmodule Html2Markdown.ConverterTest do
            {"li", [], ["Ecto"]}
          ]}
 
-      expected = "\n- Phoenix Framework\n- LiveView\n- Ecto\n"
+      expected = "- Phoenix Framework\n- LiveView\n- Ecto"
       assert Converter.process_node(ul, opts) == expected
     end
 
@@ -159,7 +159,7 @@ defmodule Html2Markdown.ConverterTest do
            {"li", [], ["Start Phoenix server"]}
          ]}
 
-      expected = "\n1. Install Elixir\n2. Create new project\n3. Start Phoenix server\n"
+      expected = "1. Install Elixir\n2. Create new project\n3. Start Phoenix server"
       assert Converter.process_node(ol, opts) == expected
     end
 
@@ -248,7 +248,7 @@ defmodule Html2Markdown.ConverterTest do
            "."
          ]}
 
-      expected = "\n> As José Valim said: **Elixir leverages the Erlang VM** .\n"
+      expected = "\n> As José Valim said: **Elixir leverages the Erlang VM**.\n"
       assert Converter.process_node(quote, opts) == expected
     end
   end
@@ -296,12 +296,12 @@ defmodule Html2Markdown.ConverterTest do
       opts = Options.defaults()
 
       section = {"section", [], [{"h2", [], ["LiveView Basics"]}]}
-      # Section processes children which returns the trimmed content
-      assert Converter.process_node(section, opts) == "\n## LiveView Basics\n"
+      # Section uses block context which produces clean content without extra newlines
+      assert Converter.process_node(section, opts) == "## LiveView Basics"
 
       article = {"article", [], [{"p", [], ["Content here"]}]}
-      # Article processes children which returns the trimmed content
-      assert Converter.process_node(article, opts) == "\nContent here\n"
+      # Article uses block context which produces clean content without extra newlines
+      assert Converter.process_node(article, opts) == "Content here"
     end
 
     test "converts figcaption" do
@@ -320,7 +320,7 @@ defmodule Html2Markdown.ConverterTest do
     test "converts line breaks" do
       opts = Options.defaults()
 
-      assert Converter.process_node({"br", [], []}, opts) == "\n\n"
+      assert Converter.process_node({"br", [], []}, opts) == "{{BR}}{{/BR}}"
     end
   end
 
@@ -355,9 +355,9 @@ defmodule Html2Markdown.ConverterTest do
 
       result = Converter.convert_to_markdown(doc, opts)
 
-      # Note: Each element adds its own newlines and convert_to_markdown joins with \n\n
+      # Elements are joined with \n\n
       expected =
-        "\n# Getting Started with Phoenix\n\n\n\nPhoenix is a web framework written in Elixir.\n\n\n\n## Installation\n\n\n\n```\n$ mix archive.install hex phx_new\n```\n\n\n\nNow you can create a new Phoenix app.\n"
+        "# Getting Started with Phoenix\n\nPhoenix is a web framework written in Elixir.\n\n## Installation\n\n```\n$ mix archive.install hex phx_new\n```\n\nNow you can create a new Phoenix app."
 
       assert result == expected
     end
@@ -374,8 +374,8 @@ defmodule Html2Markdown.ConverterTest do
       ]
 
       result = Converter.convert_to_markdown(doc, opts)
-      # Paragraphs add newlines before and after, plus join with \n\n
-      assert result == "\nFirst paragraph\n\n\n\nSecond paragraph\n"
+      # Paragraphs are joined with \n\n
+      assert result == "First paragraph\n\nSecond paragraph"
     end
   end
 
@@ -392,7 +392,7 @@ defmodule Html2Markdown.ConverterTest do
       ]
 
       result = Converter.process_children(children, opts)
-      assert result == "Check out [the documentation](/docs) for `Phoenix.LiveView` ."
+      assert result == "Check out [the documentation](/docs) for `Phoenix.LiveView`."
     end
 
     test "handles empty children list" do

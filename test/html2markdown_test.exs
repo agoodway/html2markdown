@@ -12,9 +12,9 @@ defmodule Html2MarkdownTest do
       assert Html2Markdown.convert(html) == markdown
     end
 
-    test "convert wikipedia HTML document to Markdown" do
-      {:ok, html} = File.read(@fixture_path <> "wikipedia.html")
-      {:ok, markdown} = File.read(@fixture_path <> "wikipedia.md")
+    test "convert elixir wikipedia HTML document to Markdown" do
+      {:ok, html} = File.read(@fixture_path <> "elixir_wikipedia.html")
+      {:ok, markdown} = File.read(@fixture_path <> "elixir_wikipedia.md")
 
       assert Html2Markdown.convert(html) == markdown
     end
@@ -26,7 +26,7 @@ defmodule Html2MarkdownTest do
     """
 
     expected =
-      "\nThe **bold** flavors of aged cheddar, the *subtle* notes of brie, and the ~~stinky~~ *aromatic* presence of blue cheese make for an `unforgettable` culinary experience.\n"
+      "The **bold** flavors of aged cheddar, the *subtle* notes of brie, and the ~~stinky~~ *aromatic* presence of blue cheese make for an `unforgettable` culinary experience."
 
     assert Html2Markdown.convert(fragment) == expected
   end
@@ -59,8 +59,8 @@ defmodule Html2MarkdownTest do
       <p>This	has	tabs	between	words.</p>
       """
 
-      # Paragraphs add newlines and are joined with \n\n
-      expected = "\nThis has multiple spaces between words.\n\n\n\nThis has tabs between words.\n"
+      # Paragraphs are joined with \n\n
+      expected = "This has multiple spaces between words.\n\nThis has tabs between words."
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -71,8 +71,8 @@ defmodule Html2MarkdownTest do
       <h1>   Header with spaces   </h1>
       """
 
-      # Each element adds newlines and they're joined with \n\n
-      expected = "\nLeading and trailing spaces\n\n\n\n# Header with spaces\n"
+      # Paragraph and header are joined with \n\n
+      expected = "Leading and trailing spaces\n\n# Header with spaces"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -85,7 +85,7 @@ defmodule Html2MarkdownTest do
       end</code></pre>
       """
 
-      expected = "\n```\ndef example do\n  # Indentation preserved\n    nested_code\nend\n```\n"
+      expected = "```\ndef example do\n  # Indentation preserved\n    nested_code\nend\n```"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -95,8 +95,8 @@ defmodule Html2MarkdownTest do
       <p>Use <code>  spaced  code  </code> for examples.</p>
       """
 
-      # Paragraph adds newlines
-      expected = "\nUse `  spaced  code  ` for examples.\n"
+      # Paragraph without extra newlines
+      expected = "Use `  spaced  code  ` for examples."
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -504,9 +504,9 @@ defmodule Html2MarkdownTest do
       result = Html2Markdown.convert(html)
 
       # Floki converts &nbsp; to Unicode non-breaking space (U+00A0)
-      # Paragraphs add newlines and are joined with \n\n
+      # Paragraphs are joined with \n\n
       expected =
-        "\nThe & symbol, <tag> brackets, and \"quotes\" are decoded.\n\n\n\nNon-breaking\u00A0space and apostrophe's work too.\n"
+        "The & symbol, <tag> brackets, and \"quotes\" are decoded.\n\nNon-breaking\u00A0space and apostrophe's work too."
 
       assert result == expected
     end
@@ -518,7 +518,7 @@ defmodule Html2MarkdownTest do
       &lt;/div&gt;</code></pre>
       """
 
-      expected = "\n```\n<div class=\"example\">\nContent & more\n</div>\n```\n"
+      expected = "```\n<div class=\"example\">\nContent & more\n</div>\n```"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -528,7 +528,7 @@ defmodule Html2MarkdownTest do
       <p>Copyright &#169; 2024 &#x2022; All rights reserved</p>
       """
 
-      expected = "\nCopyright © 2024 • All rights reserved\n"
+      expected = "Copyright © 2024 • All rights reserved"
 
       assert Html2Markdown.convert(html) == expected
     end
@@ -538,7 +538,7 @@ defmodule Html2MarkdownTest do
       <p>Use <code>&lt;div&gt;</code> for layout and <code>&amp;&amp;</code> for logical AND.</p>
       """
 
-      expected = "\nUse `<div>` for layout and `&&` for logical AND.\n"
+      expected = "Use `<div>` for layout and `&&` for logical AND."
 
       assert Html2Markdown.convert(html) == expected
     end
