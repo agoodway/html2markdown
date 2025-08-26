@@ -79,9 +79,7 @@ Here is an example of **strong text** and *emphasized text*.
 
 Subscript: H <sub>2</sub> O
 
-Superscript: E = mc <sup>2</sup>
-
-
+Superscript: E = mc <sup>2</sup> 
 
 ---
 

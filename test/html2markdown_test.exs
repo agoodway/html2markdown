@@ -543,4 +543,36 @@ defmodule Html2MarkdownTest do
       assert Html2Markdown.convert(html) == expected
     end
   end
+
+  describe "HTML tags with normal text" do
+    test "emphasis tag" do
+      html = """
+      <em>Emphasis</em> normal text
+      """
+
+      expected = "*Emphasis* normal text"
+
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "strong tag" do
+      html = """
+      <strong>Bold</strong> normal text
+      """
+
+      expected = "**Bold** normal text"
+
+      assert Html2Markdown.convert(html) == expected
+    end
+
+    test "span tag" do
+      html = """
+      <span>Span text</span> normal text
+      """
+
+      expected = "Span text normal text"
+
+      assert Html2Markdown.convert(html) == expected
+    end
+  end
 end
