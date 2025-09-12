@@ -49,11 +49,21 @@ defmodule Html2Markdown.Converter do
           if acc == [] do
             [iodata]
           else
-            [acc, "\n\n", iodata]
+            [acc, get_spacing_between_elements(node), iodata]
           end
       end
     end)
   end
+
+  defp get_spacing_between_elements({tag, _, _}) when is_binary(tag) do
+    if ElementTypes.block_element?(tag) do
+      "\n\n"
+    else
+      " "
+    end
+  end
+
+  defp get_spacing_between_elements(_node), do: " "
 
   # Process nodes to iolist for better performance
   defp process_node_to_iolist({"h1", _, children}, opts),
@@ -426,7 +436,7 @@ defmodule Html2Markdown.Converter do
   defp process_ordered_list_item_to_iolist(other, _index, opts),
     do: process_node_to_iolist(other, opts)
 
-  # Context-aware processing for better spacing control  
+  # Context-aware processing for better spacing control
   defp process_children_with_context(children, opts, context) do
     final_context = determine_context(children, context)
 
