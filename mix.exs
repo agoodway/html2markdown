@@ -4,7 +4,7 @@ defmodule Html2Markdown.MixProject do
   def project do
     [
       app: :html2markdown,
-      version: "0.3.0",
+      version: "0.3.1",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       description: description(),
@@ -31,7 +31,7 @@ defmodule Html2Markdown.MixProject do
       {:floki, ">= 0.38.0"},
 
       # Dev & Test
-      {:ex_doc, "~> 0.38.2", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.38.4", only: :dev, runtime: false},
       {:sobelow, "~> 0.14.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.18.5", only: [:dev, :test], runtime: false},
