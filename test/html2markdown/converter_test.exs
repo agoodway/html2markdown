@@ -181,11 +181,10 @@ defmodule Html2Markdown.ConverterTest do
            {"li", [], ["Phoenix Features"]}
          ]}
 
-      result = Converter.process_node(nested_ul, opts)
-      assert String.contains?(result, "- Elixir Features")
-      assert String.contains?(result, "- Pattern Matching")
-      assert String.contains?(result, "- Actor Model")
-      assert String.contains?(result, "- Phoenix Features")
+      expected =
+        "- Elixir Features\n  - Pattern Matching\n  - Actor Model\n- Phoenix Features"
+
+      assert Converter.process_node(nested_ul, opts) == expected
     end
   end
 
