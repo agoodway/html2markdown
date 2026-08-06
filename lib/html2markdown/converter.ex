@@ -459,7 +459,7 @@ defmodule Html2Markdown.Converter do
   defp process_ordered_list_item_to_iolist(other, _index, opts, _depth),
     do: process_node_to_iolist(other, opts)
 
-  defp list_indent(depth), do: String.duplicate("  ", depth)
+  defp list_indent(depth), do: String.duplicate("    ", depth)
 
   defp split_nested_lists(children) do
     Enum.split_with(children, fn

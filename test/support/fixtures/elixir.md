@@ -5,9 +5,9 @@
 ## Key Features of Elixir
 
 - **Functional Programming**: Elixir is built on the principles of functional programming, which emphasizes
-  - Immutability
-  - Higher-order functions
-  - Recursive algorithms
+    - Immutability
+    - Higher-order functions
+    - Recursive algorithms
 - Concurrency and Scalability: Elixir leverages the power of the Erlang VM to provide lightweight processes and efficient message passing, enabling massive concurrency and scalability.
 - Fault-Tolerance: With its actor-based concurrency model and support for supervisors, Elixir allows you to build fault-tolerant systems that can handle failures gracefully.
 - Metaprogramming: Elixir provides powerful metaprogramming capabilities through macros, allowing you to extend the language and write expressive and reusable code.
@@ -20,9 +20,9 @@
 2. Paragraph-based Chunking: With this approach, the text is divided into paragraphs based on the presence of newline characters or specific paragraph delimiters. Paragraphs provide a coherent and self-contained unit of information suitable for RAG.
 3. Semantic Chunking: Semantic chunking involves analyzing the text and identifying meaningful semantic units or phrases. This can be achieved using techniques like named entity recognition, noun phrase extraction, or dependency parsing. Semantic chunks capture the core concepts and ideas within the text.
 4. Custom Chunking: Elixir provides the flexibility to define custom chunking rules based on specific requirements. For example, you can chunk text based on a certain number of words, specific delimiters, or regular expressions that match particular patterns.
-  - By number of words
-  - By specific delimiters
-  - By regular expressions
+    - By number of words
+    - By specific delimiters
+    - By regular expressions
 
 The choice of chunking approach depends on the nature of the text and the desired granularity of retrieval and generation. Elixir's powerful string manipulation and pattern matching capabilities make it easy to implement various chunking strategies efficiently.
 

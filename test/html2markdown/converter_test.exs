@@ -182,7 +182,7 @@ defmodule Html2Markdown.ConverterTest do
          ]}
 
       expected =
-        "- Elixir Features\n  - Pattern Matching\n  - Actor Model\n- Phoenix Features"
+        "- Elixir Features\n    - Pattern Matching\n    - Actor Model\n- Phoenix Features"
 
       assert Converter.process_node(nested_ul, opts) == expected
     end
