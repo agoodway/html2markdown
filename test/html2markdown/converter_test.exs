@@ -265,11 +265,10 @@ defmodule Html2Markdown.ConverterTest do
            {"dd", [], ["Rich, interactive UIs without JavaScript"]}
          ]}
 
-      result = Converter.process_node(dl, opts)
-      assert String.contains?(result, "**Phoenix**")
-      assert String.contains?(result, ": A web framework for Elixir")
-      assert String.contains?(result, "**LiveView**")
-      assert String.contains?(result, ": Rich, interactive UIs without JavaScript")
+      expected =
+        "\n**Phoenix**\n: A web framework for Elixir\n\n**LiveView**\n: Rich, interactive UIs without JavaScript\n"
+
+      assert Converter.process_node(dl, opts) == expected
     end
 
     test "handles multiple definitions per term" do
