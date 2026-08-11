@@ -118,8 +118,7 @@ defmodule Html2Markdown.TableConverter do
     end)
   end
 
-  defp process_table_row({"tr", _attrs, cells}, column_count, opts)
-       when is_list(cells) and length(cells) > 0 do
+  defp process_table_row({"tr", _attrs, [_ | _] = cells}, column_count, opts) do
     case List.first(cells) do
       nil ->
         "|  |"

@@ -88,13 +88,13 @@ defmodule Html2Markdown.Converter do
     do: process_children_to_iolist(children, opts)
 
   defp process_node_to_iolist({"ul", _, children}, opts),
-    do: process_ul_list_to_iolist(children, opts)
+    do: process_ul_list_to_iolist(children, opts, 0)
 
   defp process_node_to_iolist({"ol", _, children}, opts),
-    do: process_ol_list_to_iolist(children, opts)
+    do: process_ol_list_to_iolist(children, opts, 0)
 
   defp process_node_to_iolist({"li", _, children}, opts),
-    do: ["- ", process_children_to_iolist(children, opts), "\n"]
+    do: [process_list_item_to_iolist({"li", [], children}, opts, 0), "\n"]
 
   defp process_node_to_iolist({"pre", _, [{"code", [{"class", classes}], children}]}, opts),
     do: process_code_block_to_iolist(classes, children, opts)
@@ -409,32 +409,73 @@ defmodule Html2Markdown.Converter do
     ["\n", result, "\n"]
   end
 
-  defp process_ul_list_to_iolist(children, opts) when is_list(children) do
+  defp process_ul_list_to_iolist(children, opts, depth) when is_list(children) do
     children
-    |> Enum.map(&process_list_item_to_iolist(&1, opts))
+    |> Enum.map(&process_list_item_to_iolist(&1, opts, depth))
     |> Enum.intersperse("\n")
   end
 
-  defp process_ol_list_to_iolist(children, opts) when is_list(children) do
+  defp process_ol_list_to_iolist(children, opts, depth) when is_list(children) do
     children
     |> Enum.with_index(1)
     |> Enum.map(fn {child, index} ->
-      process_ordered_list_item_to_iolist(child, index, opts)
+      process_ordered_list_item_to_iolist(child, index, opts, depth)
     end)
     |> Enum.intersperse("\n")
   end
 
-  defp process_list_item_to_iolist({"li", _, children}, opts),
-    do: ["- ", process_children_to_iolist(children, opts)]
+  defp process_list_item_to_iolist({"li", _, children}, opts, depth) do
+    indent = list_indent(depth)
+    {nested_lists, other_children} = split_nested_lists(children)
+    content = process_children_to_iolist(other_children, opts)
+    nested = process_nested_lists_to_iolist(nested_lists, opts, depth)
 
-  defp process_list_item_to_iolist(other, opts),
+    case {content, nested} do
+      {"", []} -> [indent, "-"]
+      {content, []} -> [indent, "- ", content]
+      {"", nested} -> [indent, "-", "\n", nested]
+      {content, nested} -> [indent, "- ", content, "\n", nested]
+    end
+  end
+
+  defp process_list_item_to_iolist(other, opts, _depth),
     do: process_node_to_iolist(other, opts)
 
-  defp process_ordered_list_item_to_iolist({"li", _, children}, index, opts),
-    do: [Integer.to_string(index), ". ", process_children_to_iolist(children, opts)]
+  defp process_ordered_list_item_to_iolist({"li", _, children}, index, opts, depth) do
+    indent = list_indent(depth)
+    marker = [Integer.to_string(index), ". "]
+    {nested_lists, other_children} = split_nested_lists(children)
+    content = process_children_to_iolist(other_children, opts)
+    nested = process_nested_lists_to_iolist(nested_lists, opts, depth)
 
-  defp process_ordered_list_item_to_iolist(other, _index, opts),
+    case {content, nested} do
+      {"", []} -> [indent, Integer.to_string(index), "."]
+      {content, []} -> [indent, marker, content]
+      {"", nested} -> [indent, Integer.to_string(index), ".", "\n", nested]
+      {content, nested} -> [indent, marker, content, "\n", nested]
+    end
+  end
+
+  defp process_ordered_list_item_to_iolist(other, _index, opts, _depth),
     do: process_node_to_iolist(other, opts)
+
+  defp list_indent(depth), do: String.duplicate("    ", depth)
+
+  defp split_nested_lists(children) do
+    Enum.split_with(children, fn
+      {tag, _, _} when tag in ["ul", "ol"] -> true
+      _ -> false
+    end)
+  end
+
+  defp process_nested_lists_to_iolist(nested_lists, opts, depth) do
+    nested_lists
+    |> Enum.map(fn
+      {"ul", _, children} -> process_ul_list_to_iolist(children, opts, depth + 1)
+      {"ol", _, children} -> process_ol_list_to_iolist(children, opts, depth + 1)
+    end)
+    |> Enum.intersperse("\n")
+  end
 
   # Context-aware processing for better spacing control
   defp process_children_with_context(children, opts, context) do
